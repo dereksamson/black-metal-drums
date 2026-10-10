@@ -331,6 +331,41 @@ namespace
     }
 } // namespace
 
+juce::StringArray grooveCategoryOrder()
+{
+    return { "Blast beats", "Black metal", "Thrash, heavy & double kick", "Polymeter",
+             "Ternary - 4/4 triplets", "Ternary - 6/8 & 12/8", "3/4" };
+}
+
+juce::String grooveCategory (const juce::String& n)
+{
+    if (n.startsWith ("Blast"))                     return "Blast beats";
+    if (n.startsWith ("Polymeter"))                 return "Polymeter";
+    if (n.startsWith ("6/8") || n.startsWith ("12/8")) return "Ternary - 6/8 & 12/8";
+    if (n.startsWith ("3/4"))                       return "3/4";
+    if (n.contains ("huffle") || n.startsWith ("Triplet") || n.startsWith ("Sextuplet"))
+        return "Ternary - 4/4 triplets";
+    if (n.startsWith ("Thrash") || n.startsWith ("Gallop") || n.startsWith ("Tribal") || n.startsWith ("Double kick"))
+        return "Thrash, heavy & double kick";
+    return "Black metal";
+}
+
+juce::StringArray fillCategoryOrder()
+{
+    return { "1/8", "One beat", "3/8 (6/8 & 12/8 beat)", "Half bar", "3/4 bar", "Full bar" };
+}
+
+juce::String fillCategory (const Layout& l)
+{
+    const double q = l.lengthQuarters();
+    if (q <= 0.5 + 1.0e-6)  return "1/8";
+    if (q <= 1.0 + 1.0e-6)  return "One beat";
+    if (q <= 1.5 + 1.0e-6)  return "3/8 (6/8 & 12/8 beat)";
+    if (q <= 2.0 + 1.0e-6)  return "Half bar";
+    if (q <= 3.0 + 1.0e-6)  return "3/4 bar";
+    return "Full bar";
+}
+
 juce::StringArray factoryPatternErrors()
 {
     juce::StringArray errors;
@@ -433,6 +468,30 @@ void Pattern::setLayout (const Layout& newLayout)
             setChance (lane, step, resultChance[(size_t) lane][(size_t) step]);
         }
     packedLayout.store (newLayout.pack(), std::memory_order_release);
+}
+
+PatternSnapshot Pattern::snapshot() const
+{
+    PatternSnapshot s;
+    s.layout = packedLayout.load (std::memory_order_acquire);
+    for (int lane = 0; lane < NumLanes; ++lane)
+        for (int step = 0; step < maxSteps; ++step)
+        {
+            s.cells[(size_t) lane][(size_t) step] = (uint8_t) get (lane, step);
+            s.chances[(size_t) lane][(size_t) step] = (uint8_t) getChance (lane, step);
+        }
+    return s;
+}
+
+void Pattern::restore (const PatternSnapshot& s)
+{
+    for (int lane = 0; lane < NumLanes; ++lane)
+        for (int step = 0; step < maxSteps; ++step)
+        {
+            set (lane, step, s.cells[(size_t) lane][(size_t) step]);
+            setChance (lane, step, s.chances[(size_t) lane][(size_t) step]);
+        }
+    packedLayout.store (s.layout, std::memory_order_release);
 }
 
 juce::ValueTree Pattern::toValueTree() const

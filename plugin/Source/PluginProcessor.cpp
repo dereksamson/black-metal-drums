@@ -278,8 +278,11 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         pendingOff[(size_t) note] = -1;
     };
 
-    if (! playing)
+    const bool previewing = ! playing && previewOn.load();
+
+    if (! playing && ! previewing)
     {
+        wasPreviewing = false;
         for (int i = 0; i < numTriggers; ++i)
             handleTrigger (triggers[(size_t) i].on, triggers[(size_t) i].note, 0.0, nullptr);
         for (int note = 0; note < 128; ++note)
@@ -292,12 +295,21 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         return;
     }
 
-    if (! wasPlaying)
+    // Switching between host playback and preview: end held notes and restart cleanly.
+    if (previewing != wasPreviewing)
+    {
+        for (int note = 0; note < 128; ++note)
+            if (pendingOff[(size_t) note] >= 0)
+                noteOff (note, 0);
+        previewPpq = 0.0;
+        wasPlaying = false;
+    }
+    if (playing && ! wasPlaying)
         forcedFillBar = bm::noBar;
 
-    const double bpm = *pos->getBpm();
+    const double bpm = pos.hasValue() && pos->getBpm().hasValue() ? *pos->getBpm() : 120.0;
     const double ppqPerSample = bpm / (60.0 * sampleRate);
-    double start = *pos->getPpqPosition();
+    double start = playing ? *pos->getPpqPosition() : previewPpq;
 
     // Hosts report positions with tiny rounding drift; snap to the previous block's end
     // so hits on a block boundary are neither doubled nor dropped.
@@ -317,7 +329,12 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             return;
         // Timing humanize can move a hit across a block boundary: look a little either side
         // and keep only hits whose shifted time falls in this segment.
-        const auto s = playbackSettings();
+        auto s = previewing ? currentSettings() : playbackSettings();
+        if (previewing && previewFillEveryBar.load())
+        {
+            s.fillEvery = 1;
+            s.randomFill = false;
+        }
         const double ppqPerMs = bpm / 60'000.0;
         const double reach = s.timingMs * ppqPerMs;
         bm::renderHits (library, s, from - reach, to + reach, [&] (const bm::Hit& hit)
@@ -340,7 +357,7 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         const auto& t = triggers[(size_t) i];
         const double at = juce::jlimit (start, end, start + t.sample * ppqPerSample);
         renderSegment (segmentStart, at);
-        handleTrigger (t.on, t.note, at, &*pos);
+        handleTrigger (t.on, t.note, at, playing ? &*pos : nullptr);
         segmentStart = at;
     }
     renderSegment (segmentStart, end);
@@ -357,7 +374,10 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     }
 
     lastEnd = end;
-    wasPlaying = true;
+    wasPlaying = playing;
+    wasPreviewing = previewing;
+    if (previewing)
+        previewPpq = end;
     playheadPpq = start;
     hostBpm = bpm;
     publishForEditor();
@@ -467,6 +487,7 @@ void BlackMetalDrumsProcessor::setStateInformation (const void* data, int sizeIn
         return;
 
     params.replaceState (state);
+    history.clear();
 
     const auto patterns = state.getChildWithName ("Patterns");
     for (auto* list : { &library.grooves, &library.fills })

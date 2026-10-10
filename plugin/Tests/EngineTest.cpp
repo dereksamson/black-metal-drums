@@ -1,6 +1,7 @@
 // Headless checks for the pattern engine.
 #include "../Source/Engine.h"
 #include "../Source/FillGenerator.h"
+#include "../Source/EditTools.h"
 #include <cstdio>
 
 namespace
@@ -227,6 +228,62 @@ int main()
                 check (hits > 0 && outside == 0, "generate " + juce::String (bm::fillStyleName ((bm::FillStyle) style)) + " into " + f->name);
                 f->reset();
             }
+    }
+
+    // 12. Every pattern lands in a menu category.
+    {
+        const auto order = bm::grooveCategoryOrder();
+        for (auto& g : lib.grooves)
+            check (order.contains (bm::grooveCategory (g->name)), "groove category for " + g->name);
+        const auto fillOrder = bm::fillCategoryOrder();
+        for (auto& f : lib.fills)
+            check (fillOrder.contains (bm::fillCategory (f->factoryLayout())), "fill category for " + f->name);
+        check (bm::grooveCategory ("Doom shuffle - Sabbath-style") == "Ternary - 4/4 triplets"
+               && bm::grooveCategory ("Blast - Bomb") == "Blast beats", "groove categories");
+    }
+
+    // 13. Undo/redo restores cells and layout.
+    {
+        bm::EditHistory history;
+        auto& p = *lib.grooves[0];
+        history.beginEdit (p);
+        p.set (bm::Tom1, 3, 77);
+        history.beginEdit (p);
+        auto l = p.layout();
+        l.res = bm::Resolution::ThirtySecond;
+        p.setLayout (l);
+        check (history.undo() == &p && p.layout().numSteps() == 32 && p.get (bm::Tom1, 3) == 77, "undo layout");
+        check (history.undo() == &p && p.get (bm::Tom1, 3) == 0, "undo cell");
+        check (history.undo() == nullptr, "nothing more to undo");
+        check (history.redo() == &p && p.get (bm::Tom1, 3) == 77, "redo cell");
+        check (history.redo() == &p && p.layout().numSteps() == 64, "redo layout");
+        p.reset();
+    }
+
+    // 14. Copy/paste across grids keeps time positions.
+    {
+        auto& src = *lib.grooves[0];   // 4/4, 1/16: kick on every 8th
+        auto& dst = **std::find_if (lib.grooves.begin(), lib.grooves.end(),
+                                    [] (auto& g) { return g->name.startsWith ("3/4 - Epic"); });   // 3/4, 1/16
+        auto clip = bm::copyBar (src, 0);
+        bm::pasteBar (dst, 1, clip);   // 4/4 bar into a 3/4 bar: last beat dropped
+        int kicks = 0;
+        for (int st = 12; st < 24; ++st) kicks += dst.get (bm::Kick, st) > 0;
+        check (kicks == 6 && dst.get (bm::Kick, 12) > 0 && dst.get (bm::Kick, 14) > 0, "paste bar 4/4 -> 3/4");
+        dst.reset();
+
+        auto& fill = *lib.fills[1];    // 1/32, one beat: kick on 0 and 4
+        auto laneClip = bm::copyLane (fill, bm::Kick);
+        auto& groove = *lib.grooves[9];   // mid-tempo march, 2 bars of 1/16
+        bm::pasteLane (groove, bm::Snare, laneClip);   // one-beat lane repeats over 8 beats
+        int snares = 0;
+        for (int st = 0; st < 32; ++st) snares += groove.get (bm::Snare, st) > 0;
+        check (snares == 16 && groove.get (bm::Snare, 2) > 0, "paste lane repeats");
+        groove.reset();
+
+        bm::copyBarToAllBars (groove, 1);
+        check (groove.get (bm::Crash, 0) == groove.get (bm::Crash, 16), "copy bar to all bars");
+        groove.reset();
     }
 
     std::printf (failures == 0 ? "All engine tests passed\n" : "%d failures\n", failures);

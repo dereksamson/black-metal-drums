@@ -5,6 +5,7 @@
 
 #include "Engine.h"
 #include "KitMaps.h"
+#include "EditTools.h"
 
 class BlackMetalDrumsProcessor : public juce::AudioProcessor
 {
@@ -62,6 +63,15 @@ public:
     std::array<std::atomic<int>, bm::NumLanes> noteMap;
     juce::AudioProcessorValueTreeState params;
 
+    // Editing state shared by editor windows (message thread only).
+    bm::EditHistory history;
+    bm::BarClip barClipboard;
+    bm::LaneClip laneClipboard;
+
+    // Preview: while Logic is stopped, play the selected groove from an internal clock.
+    std::atomic<bool> previewOn { false };
+    std::atomic<bool> previewFillEveryBar { false };   // set while the fill tab is shown
+
     std::atomic<double> playheadPpq { -1.0 };   // -1 when stopped
     std::atomic<double> hostBpm { 0.0 };
     std::atomic<int> hostNumerator { 0 }, hostDenominator { 0 };   // 0 = unknown
@@ -92,6 +102,8 @@ private:
     std::array<int, 128> pendingOff {};   // samples until note-off, -1 = none
     double lastEnd = 0.0;
     bool wasPlaying = false;
+    bool wasPreviewing = false;
+    double previewPpq = 0.0;
     juce::MidiBuffer passThrough;
 
     // Note-trigger state (audio thread only).

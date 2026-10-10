@@ -71,6 +71,13 @@ struct PatternDef
     std::vector<std::pair<Lane, const char*>> lanes;
 };
 
+// Full copy of a pattern's layout and cells, for undo.
+struct PatternSnapshot
+{
+    uint32_t layout = 0;
+    std::array<std::array<uint8_t, maxSteps>, NumLanes> cells {}, chances {};
+};
+
 // A pattern whose cells and layout are edited on the message thread and read on the
 // audio thread. Everything is atomic, so no locking is needed; a reader may briefly see a
 // half-applied edit, which at worst changes one block of output.
@@ -109,6 +116,10 @@ public:
     }
 
     void reset();   // back to the factory pattern and layout
+
+    PatternSnapshot snapshot() const;
+    void restore (const PatternSnapshot&);
+    const Layout& factoryLayout() const noexcept    { return def.layout; }
     void clear();
 
     juce::ValueTree toValueTree() const;
@@ -129,6 +140,12 @@ struct Library
     juce::StringArray grooveNames() const;
     juce::StringArray fillNames() const;
 };
+
+// Menu grouping. Grooves are grouped by style, fills by their factory length.
+juce::String grooveCategory (const juce::String& grooveName);
+juce::StringArray grooveCategoryOrder();
+juce::String fillCategory (const Layout& factoryLayout);
+juce::StringArray fillCategoryOrder();
 
 // Problems in the factory pattern definitions (wrong grid lengths etc.); empty when all is well.
 juce::StringArray factoryPatternErrors();
