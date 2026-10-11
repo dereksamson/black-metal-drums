@@ -1,205 +1,63 @@
-# Black Metal Drums (Logic Pro MIDI FX)
+# Black Metal Drums: plugin source
 
-An Audio Unit MIDI FX plugin. It plays black metal grooves and fills in time with Logic's
-transport, and you can edit them on a step grid. Notes go out on channel 10. A kit map sets
-which note each drum sends, so it works in front of EZdrummer, Superior Drummer, GGD,
-Drum Kit Designer, and similar.
+An Audio Unit MIDI FX for Logic Pro, built with JUCE 8. **How to use it is covered in the
+[user guide](../docs/USER_GUIDE.md).** This page covers building and the code.
 
-## Build and install
+## Build
 
-Requires: Apple Command Line Tools, `brew install cmake ninja`. JUCE 8.0.10 is in `external/JUCE`.
+Requires macOS with Apple's Command Line Tools, plus `brew install cmake ninja`.
+JUCE 8.0.10 is a git submodule in `external/JUCE`; clone with `--recurse-submodules`.
 
-    ./build.sh
-
-This builds the plugin, runs the engine and processor tests, installs the plugin to
-`~/Library/Audio/Plug-Ins/Components`, ad-hoc signs it, and runs `auval`.
-
-    ./package.sh
-
-This makes a universal build (Apple Silicon + Intel) and writes a `.pkg` installer and a
-`.zip` of the component to `../dist`. The plugin installed by `build.sh` is left alone.
-
-## Use in Logic
-
-1. Create a Software Instrument track with your drum plugin.
-2. In the track's **MIDI FX** slot, choose **Audio Units > Grosbug > Black Metal Drums**.
-3. Press play.
-
-- **Groove / Fill / Fill every / Random fill**: the fill replaces the end of every Nth bar.
-  The Groove menu is grouped by style, and the Fill menu by length.
-- **Cymbal**: moves the groove's cymbal part to the ride, ride bell, crash, china or hi-hat.
-  The downbeat crash stays a crash, and fills are left alone.
-- **Crash after fill**: adds a crash on the downbeat after each fill, unless the groove
-  already has one there.
-- **Knobs**:
-  - **Humanize**: velocity variation.
-  - **Accent**: extra velocity on the beat.
-  - **Velocity**: overall velocity scale.
-  - **Timing**: random timing variation, +/- ms.
-  - **Kick L/R**: makes every second kick in a double-kick run weaker.
-  - **Chance**: how much the per-step chances apply. At 0% every hit plays.
-- All the random variation is the same on every playback, so a bar sounds the same on
-  every pass. Different bars vary.
-- Every control can be automated.
-
-### Kit map
-
-**Kit map...** chooses which MIDI note each lane sends.
-- Built-in maps: **General MIDI**, and **General MIDI - low toms** (toms on 48/45/43/41).
-- To map your own kit, click each lane name in the grid and pick its note.
-  Then use **Save current map as...** and it appears in the menu in every project.
-- Saved maps are `.bmkit` files in `~/Library/Application Support/BlackMetalDrums/KitMaps`.
-
-### Note triggers (arranging with MIDI regions)
-
-Set **Note trigger** to **Latch** or **Hold**. Then draw notes on the track to arrange:
-
-| Keys | Effect |
+| Command | What it does |
 |---|---|
-| C-2 (note 0) upward, one key per groove, in Groove-menu order | Selects that groove and restarts it on the bar line |
-| C6 (note 96) upward, one key per fill, in Fill-menu order | Plays that fill at the end of the bar the note is in |
+| `./build.sh` | Builds the plugin, runs the engine and processor tests, installs to `~/Library/Audio/Plug-Ins/Components`, ad-hoc signs, runs `auval` |
+| `./package.sh` | Universal build (arm64 + x86_64): a non-relocatable `.pkg` installer and a `.zip` of the component in `../dist`. The plugin installed by `build.sh` is left alone |
+| `./build/ExportPatterns_artefacts/Release/ExportPatterns ../midi` | Regenerates the repository's `midi/` folder from the factory patterns |
 
-- **Latch**: a groove plays until the next groove key.
-- **Hold**: a groove plays only while its key is held. Draw one long note per section, and
-  gaps are silent.
-- A groove key up to a 16th before a bar line counts for that bar.
-- The keys sit below and above the General MIDI drum range (35-81). Trigger keys are not
-  passed on to the drum plugin; drum notes you draw are.
-- The exact key ranges are shown next to the trigger control.
+The version is set in `CMakeLists.txt` (`project(... VERSION ...)`) and shown in the plugin's
+**? > About** menu.
 
-### Song mode
+## Code map
 
-The **Song** tab arranges sections. Each section has:
-- a groove
-- a length in bars
-- optional fills every 1, 2, 4 or 8 bars
-- an **end of section** fill on its last bar: a chosen fill, random, or none
+| File | Role |
+|---|---|
+| `Source/Patterns.*` | Pattern model: lanes, `Layout` (meter, bars, resolution), atomic cells and chances, factory grooves and fills, menu categories |
+| `Source/Engine.h` | Rendering: which pattern and step plays at a PPQ position, fills, accents, chance, cymbal swap, kick balance, humanize |
+| `Source/Song.h` | Song sections (one atomic word each) and song rendering |
+| `Source/PluginProcessor.*` | Host sync, note triggers, preview, note-offs, MIDI export, state |
+| `Source/PluginEditor.*` | Main window, step grid, menus, help |
+| `Source/SongEditor.*` | Song tab |
+| `Source/EditTools.*` | Undo/redo history, bar and lane clipboards |
+| `Source/PatternFiles.*` | Per-pattern MIDI export, export all, presets |
+| `Source/KitMaps.*` | Built-in and saved kit maps |
+| `Source/FillGenerator.*` | Generated fills |
+| `Tests/EngineTest.cpp` | Engine, layout, clipboard, song and generator tests |
+| `Tests/ProcessorTest.cpp` | The real processor against a simulated host transport |
+| `Tools/ExportPatterns.cpp` | Command-line exporter |
 
-Use **+ Add section** to add one with the current Groove and Fill. The row buttons move a
-section up or down (^ v), duplicate it (+) and delete it (x).
+### Grid notation for factory patterns
 
-Turn on **Song mode** and playback follows the arrangement from bar 1 of the project.
-- Note triggers and the Groove/Fill menus are ignored while it's on.
-- The humanize, cymbal, chance and kit map controls still apply.
-- With **Crash after fill**, a section that follows a fill starts with a crash.
-- **Loop song** repeats the song; otherwise it goes silent after the last section.
-- The playing section is highlighted.
-- Sections can use different meters. Set matching time signatures in Logic at each section;
-  the summary warns when meters change.
-- In song mode, **Drag MIDI** and **Save .mid** export the whole song as one file, with a time
-  signature change wherever the meter changes.
+In `Patterns.cpp`, each lane is a string with one character per step:
 
-### Meter, length and resolution
+| Character | Meaning |
+|---|---|
+| `.` | rest |
+| `x` | normal hit |
+| `X` | accent |
+| `g` | ghost note |
+| `1`–`9` | velocity level |
+| `?` | normal hit with a 50 % chance |
 
-Above the grid:
-- **Grooves**: meter (2/4, 3/4, 4/4, 5/4, 5/8, 6/8, 7/8, 9/8, 12/8), 1 to 5 bars, and
-  resolution (1/8, 1/8 T, 1/16, 1/16 T, 1/32).
-- **Fills**: length from 1/8 to a full 4/4 bar, plus resolution.
-- Changing these keeps your hits where they fall in time. Adding bars repeats the existing ones.
-- Set Logic's time signature to match the groove. The plugin warns when they differ.
+Spaces and `|` are ignored. Groove keys follow menu order, and there are at most 35 grooves,
+so their keys stay below the General MIDI drum range. `factoryPatternErrors()`, which the
+tests check, catches grids of the wrong length.
 
-### Grid
+### Threading
 
-- Lanes: crash, crash 2, china, ride, ride bell, hi-hat, open hi-hat, snare, 3 toms, floor tom, kick.
-- Click to add or remove a hit.
-- Drag up or down to set velocity.
-- Alt-click for a ghost note, Cmd-click for an accent.
-- **Shift-drag** a hit to set its chance of playing. **Shift-click** switches it between 100% and 50%.
-  Chance steps show a dashed outline.
-- **Generate...** (on the fill tab) replaces the fill with a new snare roll, tom cascade,
-  snare-into-toms or kick+snare stab fill. It keeps the fill's length and resolution, and each
-  click gives a new variation.
-- **Right-click** a step for copy and paste:
-  - copy, paste or clear a bar, or copy a bar to all bars
-  - copy, paste or clear a lane
-  - set a hit's chance to 100, 75, 50 or 25%
+Patterns, the kit map and the song are edited on the message thread and read on the audio
+thread through atomics. The audio thread doesn't lock or allocate. Undo history and clipboards
+are used only on the message thread.
 
-  Pasting keeps time positions across meters and resolutions. For example, a 4/4 bar pasted
-  into a 3/4 bar loses its last beat, and a one-beat lane repeats to fill a 2-bar groove.
-  The clipboard works across patterns.
-- **Undo / Redo** cover every grid and song edit: clicks, drags, paste, Generate, Reset, Clear,
-  presets, layout changes, and song sections. Undo shows what changed.
-- **Presets...** saves the pattern to your own library, or loads a saved pattern into this slot.
-  Loading replaces the slot's content, and **Reset** brings back the factory pattern. Presets are
-  `.bmpat` files in `~/Library/Application Support/BlackMetalDrums/Patterns/{Grooves,Fills}`,
-  available in every project.
-- **Preview** plays the selected groove while Logic is stopped. On the fill tab, the fill plays
-  every bar. The track must be selected so Logic keeps the plugin running.
-- When note triggers are on, the groove tab follows the groove that's playing.
-- Edits are saved with the Logic project. **Reset** restores the factory pattern.
+## License
 
-### Export
-
-Drag the **Drag MIDI into Logic** tile onto the tracks area to get a region of the selected
-groove and its fills. **Save .mid...** writes the same thing to a file.
-
-**Export all...** writes every groove and fill as a separate MIDI file into a folder you choose.
-It uses the current kit map and humanize settings, and each pattern's suggested tempo.
-
-If you hear nothing, Logic may be skipping an empty track. Select the track (live mode) or
-put an empty MIDI region on it.
-
-## Factory patterns
-
-The "-style" patterns are in the spirit of a band or drummer. They are not transcriptions.
-
-**Grooves (35)**
-- **Blast beats**:
-  - traditional (ride, crash, hi-hat)
-  - hammer (crash, china)
-  - bomb (crash, china)
-  - gravity (approximation)
-  - ride bell
-- **Black metal**:
-  - skank beat
-  - d-beat
-  - mid-tempo march
-  - half-time atmospheric
-  - half-time double kick
-  - mid-tempo with variable kicks
-- **Double kick**: 16ths, gallop.
-- **Thrash and heavy**:
-  - thrash beat (Slayer-style)
-  - gallop (Maiden-style)
-  - tribal toms (Sepultura-style)
-- **Polymeter**: the hands stay in 4/4 while the kicks cycle across the bar line.
-  - kicks in groups of 3 (Meshuggah-style), 3-bar cycle
-  - 5/16 over 4/4, 5-bar cycle
-- **Ternary, 4/4 on a triplet grid**:
-  - double-bass shuffle (Hot for Teacher-style)
-  - doom shuffle (Sabbath-style)
-  - triplet breakdown
-  - sextuplet double kick (Hoglan-style)
-- **Ternary, 6/8 and 12/8**:
-  - 6/8 tremolo, blast and double kick
-  - 12/8 atmospheric
-  - 12/8 tom shuffle (Running Free-style)
-  - 12/8 half-time shuffle (Pantera-style)
-  - 12/8 triplet double kick (Mgla-style)
-- **3/4**: hammer blast, epic (Bathory-style).
-
-**Fills (23)**
-- **One beat**:
-  - snare 16ths
-  - snare 32nds
-  - snare + kick
-  - toms 16ths and 32nds
-  - snare to floor
-  - triplet toms
-  - sextuplets
-  - unison stabs
-  - gravity roll
-  - 32nd blast burst
-  - sextuplet burst (Hoglan-style)
-- **3/8** (one 6/8 or 12/8 beat): 16th toms, triplet toms.
-- **Half bar**:
-  - snare roll
-  - stabs
-  - linear fill
-  - triplet tom run
-  - triplet unison stabs
-- **Full bar**:
-  - tom cascade
-  - hand-hand-foot triplets
-  - 32nd roll around the kit
-  - groups of five
+GNU AGPLv3. See [LICENSE](../LICENSE).

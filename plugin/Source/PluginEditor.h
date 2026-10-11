@@ -83,6 +83,21 @@ private:
     bool dragging = false;
 };
 
+// Offline quick reference shown over the editor; click outside the panel or Close to dismiss.
+class HelpOverlay : public juce::Component
+{
+public:
+    explicit HelpOverlay (const juce::String& text);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void mouseDown (const juce::MouseEvent& e) override   { if (! panel.contains (e.getPosition())) setVisible (false); }
+
+private:
+    juce::TextEditor body;
+    juce::TextButton closeButton { "Close" };
+    juce::Rectangle<int> panel;
+};
+
 class BlackMetalDrumsEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -116,6 +131,8 @@ private:
     void setChoiceParam (const char* id, int index);
     void undoOrRedo (bool undo);
     void showPresetMenu();
+    void showHelpMenu();
+    juce::String quickReference() const;
     void savePresetAs();
     void exportAll();
 
@@ -150,6 +167,8 @@ private:
     MidiDragTile dragTile;
     juce::TextButton saveButton { "Save .mid..." }, exportAllButton { "Export all..." }, previewButton { "Preview" };
     juce::Label hintLabel;
+    juce::TextButton helpButton { "?" };
+    std::unique_ptr<HelpOverlay> helpOverlay;
 
     std::unique_ptr<ComboAttachment> fillEveryAttachment, triggerAttachment,
                                      cymbalAttachment;

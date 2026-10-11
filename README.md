@@ -10,8 +10,9 @@ Black metal (and wider metal) drum patterns, as MIDI files and as a Logic Pro pl
   - kit maps, so it works with any drum plugin
   - a per-step chance of playing, cymbal swap, and velocity and timing humanize
   - a fill generator
+  - a song mode, presets, undo/redo and copy/paste
 
-  See the [plugin README](plugin/README.md).
+  **[Read the user guide](docs/USER_GUIDE.md).** Developers should see [plugin/README.md](plugin/README.md).
 - **[midi/](midi/)** — every factory groove (35) and fill (23) as a standalone General MIDI file,
   ready to drag into any DAW. Each file name includes a suggested tempo. The files come from the
   plugin's own pattern engine; run `plugin/build/ExportPatterns_artefacts/Release/ExportPatterns midi`
@@ -33,7 +34,7 @@ It's a universal build for Apple Silicon and Intel, and it installs into
 
 Requires macOS with Apple's Command Line Tools. `build.sh` builds, tests, installs, signs and
 validates the plugin. Then, in Logic, choose **MIDI FX > Audio Units > Grosbug > Black Metal Drums**
-on a drum track.
+on a drum track, and follow the [quick start](docs/USER_GUIDE.md#2-quick-start).
 
 ## License
 
