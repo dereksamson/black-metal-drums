@@ -152,6 +152,19 @@ int main()
         check (hasNear (hits, 4.5, 36) && hasNear (hits, 5.0, 36) && hasNear (hits, 5.5, 38), "last groove key");
     }
 
+    // Preview: plays while the host is stopped, silent once it is switched off.
+    {
+        Rig r;
+        r.setParam ("fillEvery", 0);
+        r.host.playing = false;
+        check (r.play (0.0, 4.0).empty(), "stopped: silent");
+        r.proc.previewOn = true;
+        const auto hits = r.play (0.0, 4.0);
+        check (hasNear (hits, 0.0, 36) && hasNear (hits, 0.5, 36), "preview plays from bar 1");
+        r.proc.previewOn = false;
+        check (r.play (4.0, 8.0).empty(), "preview off: silent");
+    }
+
     // Timing humanize across block boundaries: every kick still plays exactly once.
     {
         Rig r;

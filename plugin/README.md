@@ -21,6 +21,7 @@ This builds the plugin, runs the engine and processor tests, installs the plugin
 3. Press play.
 
 - **Groove / Fill / Fill every / Random fill**: the fill replaces the end of every Nth bar.
+  The Groove menu is grouped by style, and the Fill menu by length.
 - **Cymbal**: moves the groove's cymbal part to the ride, ride bell, crash, china or hi-hat.
   The downbeat crash stays a crash, and fills are left alone.
 - **Crash after fill**: adds a crash on the downbeat after each fill, unless the groove
@@ -81,6 +82,18 @@ Above the grid:
 - **Generate...** (on the fill tab) replaces the fill with a new snare roll, tom cascade,
   snare-into-toms or kick+snare stab fill. It keeps the fill's length and resolution, and each
   click gives a new variation.
+- **Right-click** a step for copy and paste:
+  - copy, paste or clear a bar, or copy a bar to all bars
+  - copy, paste or clear a lane
+  - set a hit's chance to 100, 75, 50 or 25%
+
+  Pasting keeps time positions across meters and resolutions. For example, a 4/4 bar pasted
+  into a 3/4 bar loses its last beat, and a one-beat lane repeats to fill a 2-bar groove.
+  The clipboard works across patterns.
+- **Undo / Redo** cover every grid edit: clicks, drags, paste, Generate, Reset, Clear, and
+  layout changes. Undo shows the pattern that changed.
+- **Preview** plays the selected groove while Logic is stopped. On the fill tab, the fill plays
+  every bar. The track must be selected so Logic keeps the plugin running.
 - When note triggers are on, the groove tab follows the groove that's playing.
 - Edits are saved with the Logic project. **Reset** restores the factory pattern.
 

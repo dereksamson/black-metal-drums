@@ -214,7 +214,14 @@ void StepGrid::mouseDown (const juce::MouseEvent& e)
     if (! cellAt (e.position, lane, step))
         return;
 
+    if (e.mods.isPopupMenu())
+    {
+        showCellMenu (lane, step);
+        return;
+    }
+
     const int v = pattern->get (lane, step);
+    beginEdit();   // one undo step per click or drag
 
     if (e.mods.isAltDown() || e.mods.isCommandDown())
     {
@@ -308,6 +315,66 @@ void StepGrid::showNoteMenu (int lane)
                         });
 }
 
+void StepGrid::showCellMenu (int lane, int step)
+{
+    const auto l = pattern->layout();
+    const int bar = step / l.stepsPerBar();
+    const juce::String barName = l.bars > 1 ? "bar " + juce::String (bar + 1) : juce::String ("bar");
+    const juce::String laneName = juce::String (laneNames[lane]).toLowerCase();
+    auto& proc = bmProcessor;
+
+    juce::PopupMenu menu;
+    menu.addItem (1, "Copy " + barName);
+    menu.addItem (2, "Paste into " + barName, proc.barClipboard.valid);
+    menu.addItem (3, "Clear " + barName);
+    menu.addItem (4, "Copy " + barName + " to all bars", l.bars > 1);
+    menu.addSeparator();
+    menu.addItem (10, "Copy " + laneName + " lane");
+    menu.addItem (11, "Paste into " + laneName + " lane", proc.laneClipboard.valid);
+    menu.addItem (12, "Clear " + laneName + " lane");
+
+    const int chance = pattern->getChance (lane, step);
+    if (pattern->get (lane, step) > 0)
+    {
+        menu.addSeparator();
+        menu.addSectionHeader ("Chance of this hit");
+        for (int i = 0; i < 4; ++i)
+            menu.addItem (20 + i, juce::String (100 - 25 * i) + "%", true, chance == 100 - 25 * i);
+    }
+
+    juce::Component::SafePointer<StepGrid> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(),
+                        [safe, lane, step, bar] (int result)
+                        {
+                            if (safe == nullptr || result == 0 || safe->pattern == nullptr)
+                                return;
+                            auto& self = *safe;
+                            auto& p = *self.pattern;
+                            auto& pr = self.bmProcessor;
+
+                            if (result == 1)  { pr.barClipboard = bm::copyBar (p, bar); return; }
+                            if (result == 10) { pr.laneClipboard = bm::copyLane (p, lane); return; }
+
+                            self.beginEdit();
+                            switch (result)
+                            {
+                                case 2:  bm::pasteBar (p, bar, pr.barClipboard); break;
+                                case 3:  bm::clearBar (p, bar); break;
+                                case 4:  bm::copyBarToAllBars (p, bar); break;
+                                case 11: bm::pasteLane (p, lane, pr.laneClipboard); break;
+                                case 12: bm::clearLane (p, lane); break;
+                                default: p.setChance (lane, step, 100 - 25 * (result - 20)); break;
+                            }
+                            self.edited();
+                        });
+}
+
+void StepGrid::beginEdit()
+{
+    if (pattern != nullptr)
+        bmProcessor.history.beginEdit (*pattern);
+}
+
 void StepGrid::edited()
 {
     bmProcessor.patternsEdited();
@@ -354,8 +421,9 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     setLookAndFeel (&lookAndFeel);
 
     // Row 1
-    grooveBox.addItemList (bmProcessor.library.grooveNames(), 1);
-    fillBox.addItemList (bmProcessor.library.fillNames(), 1);
+    buildPatternMenus();
+    grooveBox.onChange = [this] { setChoiceParam ("groove", grooveBox.getSelectedId() - 1); };
+    fillBox.onChange = [this] { setChoiceParam ("fill", fillBox.getSelectedId() - 1); };
     fillEveryBox.addItemList ({ "Off", "1 bar", "2 bars", "4 bars", "8 bars" }, 1);
     for (auto* box : { &grooveBox, &fillBox, &fillEveryBox })
         addAndMakeVisible (*box);
@@ -399,8 +467,6 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     addAndMakeVisible (triggerInfo);
 
     auto& apvts = bmProcessor.params;
-    grooveAttachment      = std::make_unique<ComboAttachment> (apvts, "groove", grooveBox);
-    fillAttachment        = std::make_unique<ComboAttachment> (apvts, "fill", fillBox);
     fillEveryAttachment   = std::make_unique<ComboAttachment> (apvts, "fillEvery", fillEveryBox);
     triggerAttachment     = std::make_unique<ComboAttachment> (apvts, "trigger", triggerBox);
     randomFillAttachment  = std::make_unique<ButtonAttachment> (apvts, "randomFill", randomFillButton);
@@ -441,13 +507,14 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     }
 
     statusLabel.setFont (juce::FontOptions (12.0f));
-    statusLabel.setJustificationType (juce::Justification::centredRight);
+    statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
 
     resetButton.onClick = [this]
     {
         if (auto* pat = grid.getPattern())
         {
+            bmProcessor.history.beginEdit (*pat);
             pat->reset();
             bmProcessor.patternsEdited();
             syncGridPattern();
@@ -458,11 +525,17 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     {
         if (auto* pat = grid.getPattern())
         {
+            bmProcessor.history.beginEdit (*pat);
             pat->clear();
             bmProcessor.patternsEdited();
             grid.repaint();
         }
     };
+    undoButton.onClick = [this] { undoOrRedo (true); };
+    redoButton.onClick = [this] { undoOrRedo (false); };
+    addAndMakeVisible (undoButton);
+    addAndMakeVisible (redoButton);
+
     generateButton.setTooltip ("Replace this fill with a generated one (keeps its length and resolution)");
     generateButton.onClick = [this] { showGenerateMenu(); };
     addAndMakeVisible (generateButton);
@@ -478,8 +551,12 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     // Bottom
     saveButton.onClick = [this] { saveMidiAs(); };
     addAndMakeVisible (saveButton);
-    hintLabel.setText ("Click: add/remove  -  Drag up/down: velocity  -  Alt-click: ghost  -  Cmd-click: accent\n"
-                       "Shift-drag: chance (Shift-click: 50%)  -  Click a lane name: change its MIDI note",
+    previewButton.setClickingTogglesState (true);
+    previewButton.setTooltip ("Play the selected groove while Logic is stopped (the fill tab plays its fill every bar)");
+    previewButton.onClick = [this] { bmProcessor.previewOn = previewButton.getToggleState(); };
+    addAndMakeVisible (previewButton);
+    hintLabel.setText ("Click: add/remove  -  Drag: velocity  -  Alt: ghost  -  Cmd: accent  -  Shift-drag: chance  -  "
+                       "Right-click: copy/paste  -  Lane name: MIDI note",
                        juce::dontSendNotification);
     hintLabel.setColour (juce::Label::textColourId, colours::dimText);
     hintLabel.setFont (juce::FontOptions (11.5f));
@@ -499,6 +576,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
 BlackMetalDrumsEditor::~BlackMetalDrumsEditor()
 {
     stopTimer();
+    bmProcessor.previewOn = false;
     setLookAndFeel (nullptr);
 }
 
@@ -580,6 +658,87 @@ void BlackMetalDrumsEditor::refreshLayoutControls()
     }
 }
 
+void BlackMetalDrumsEditor::buildPatternMenus()
+{
+    const auto& lib = bmProcessor.library;
+
+    grooveBox.clear (juce::dontSendNotification);
+    for (const auto& category : grooveCategoryOrder())
+    {
+        bool first = true;
+        for (size_t i = 0; i < lib.grooves.size(); ++i)
+            if (grooveCategory (lib.grooves[i]->name) == category)
+            {
+                if (std::exchange (first, false))
+                    grooveBox.addSectionHeading (category);
+                grooveBox.addItem (lib.grooves[i]->name, (int) i + 1);
+            }
+    }
+
+    fillBox.clear (juce::dontSendNotification);
+    for (const auto& category : fillCategoryOrder())
+    {
+        bool first = true;
+        for (size_t i = 0; i < lib.fills.size(); ++i)
+            if (fillCategory (lib.fills[i]->factoryLayout()) == category)
+            {
+                if (std::exchange (first, false))
+                    fillBox.addSectionHeading (category);
+                fillBox.addItem (lib.fills[i]->name, (int) i + 1);
+            }
+    }
+    syncPatternMenus();
+}
+
+// Menu item IDs are pattern index + 1, so the grouped order doesn't affect the parameters.
+void BlackMetalDrumsEditor::syncPatternMenus()
+{
+    const auto s = bmProcessor.currentSettings();
+    if (grooveBox.getSelectedId() != s.groove + 1)
+        grooveBox.setSelectedId (s.groove + 1, juce::dontSendNotification);
+    if (fillBox.getSelectedId() != s.fill + 1)
+        fillBox.setSelectedId (s.fill + 1, juce::dontSendNotification);
+}
+
+void BlackMetalDrumsEditor::setChoiceParam (const char* id, int index)
+{
+    if (index < 0)
+        return;
+    if (auto* param = bmProcessor.params.getParameter (id))
+    {
+        param->beginChangeGesture();
+        param->setValueNotifyingHost (param->convertTo0to1 ((float) index));
+        param->endChangeGesture();
+    }
+}
+
+// Undo/redo, then show the pattern that changed so the edit is visible.
+void BlackMetalDrumsEditor::undoOrRedo (bool undo)
+{
+    auto* changed = undo ? bmProcessor.history.undo() : bmProcessor.history.redo();
+    if (changed == nullptr)
+        return;
+
+    const auto& lib = bmProcessor.library;
+    for (size_t i = 0; i < lib.fills.size(); ++i)
+        if (lib.fills[i].get() == changed)
+        {
+            setChoiceParam ("fill", (int) i);
+            fillTab.setToggleState (true, juce::sendNotification);
+        }
+    for (size_t i = 0; i < lib.grooves.size(); ++i)
+        if (lib.grooves[i].get() == changed)
+        {
+            setChoiceParam ("groove", (int) i);
+            grooveTab.setToggleState (true, juce::sendNotification);
+        }
+
+    bmProcessor.patternsEdited();
+    syncPatternMenus();
+    syncGridPattern();
+    grid.repaint();
+}
+
 void BlackMetalDrumsEditor::showGenerateMenu()
 {
     juce::PopupMenu menu;
@@ -593,6 +752,7 @@ void BlackMetalDrumsEditor::showGenerateMenu()
                         {
                             if (safe == nullptr || result == 0 || safe->shownPattern == nullptr || ! safe->fillTab.getToggleState())
                                 return;
+                            safe->bmProcessor.history.beginEdit (*safe->shownPattern);
                             generateFill (*safe->shownPattern, (FillStyle) (result - 1), safe->fillRandom);
                             safe->bmProcessor.patternsEdited();
                             safe->grid.repaint();
@@ -633,6 +793,8 @@ void BlackMetalDrumsEditor::applyLayoutFromControls()
     for (int i = 0; ! l.isValid() && i < (int) Resolution::NumResolutions; ++i)
         l.res = (Resolution) i;
 
+    if (l != shownPattern->layout())
+        bmProcessor.history.beginEdit (*shownPattern);
     shownPattern->setLayout (l);
     bmProcessor.patternsEdited();
     syncGridPattern();
@@ -767,7 +929,11 @@ void BlackMetalDrumsEditor::updateStatus()
 
 void BlackMetalDrumsEditor::timerCallback()
 {
+    syncPatternMenus();
     syncGridPattern();
+    undoButton.setEnabled (bmProcessor.history.canUndo());
+    redoButton.setEnabled (bmProcessor.history.canRedo());
+    bmProcessor.previewFillEveryBar = fillTab.getToggleState();
     updateStatus();
 
     const double ppq = bmProcessor.playheadPpq.load();
@@ -885,20 +1051,25 @@ void BlackMetalDrumsEditor::resized()
     lengthBox.setBounds (meterBox.getBounds().getUnion (barsBox.getBounds()));
     tools.removeFromLeft (6);
     resolutionBox.setBounds (tools.removeFromLeft (80));
+    tools.removeFromLeft (16);
+    undoButton.setBounds (tools.removeFromLeft (60));
+    tools.removeFromLeft (6);
+    redoButton.setBounds (tools.removeFromLeft (60));
     clearButton.setBounds (tools.removeFromRight (70));
     tools.removeFromRight (6);
     resetButton.setBounds (tools.removeFromRight (70));
     tools.removeFromRight (6);
     generateButton.setBounds (tools.removeFromRight (100));
-    tools.removeFromRight (10);
-    statusLabel.setBounds (tools);
 
     // Bottom bar.
     auto bottom = area.removeFromBottom (76).withTrimmedTop (12).withTrimmedBottom (14);
     dragTile.setBounds (bottom.removeFromLeft (240));
     bottom.removeFromLeft (12);
     saveButton.setBounds (bottom.removeFromLeft (110).withSizeKeepingCentre (110, 30));
+    bottom.removeFromLeft (8);
+    previewButton.setBounds (bottom.removeFromLeft (90).withSizeKeepingCentre (90, 30));
     bottom.removeFromLeft (16);
+    statusLabel.setBounds (bottom.removeFromTop (bottom.getHeight() / 2));
     hintLabel.setBounds (bottom);
 
     area.removeFromTop (8);

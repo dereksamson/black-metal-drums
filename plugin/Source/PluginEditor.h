@@ -23,7 +23,8 @@ public:
 
 // Lane-by-step editor for one pattern; lives in a Viewport, lane names stay pinned left.
 //   click: add / remove   drag up-down: velocity   alt-click: ghost   cmd-click: accent
-//   shift-drag: chance (shift-click toggles 100% / 50%)   click a lane name: choose its MIDI note
+//   shift-drag: chance (shift-click toggles 100% / 50%)   right-click: copy/paste bars and lanes
+//   click a lane name: choose its MIDI note
 class StepGrid : public juce::Component
 {
 public:
@@ -47,6 +48,8 @@ private:
     bool cellAt (juce::Point<float>, int& lane, int& step) const;
     int laneAt (float y) const;
     void showNoteMenu (int lane);
+    void showCellMenu (int lane, int step);
+    void beginEdit();
     void edited();
 
     BlackMetalDrumsProcessor& bmProcessor;
@@ -106,6 +109,10 @@ private:
     void setupCaption (juce::Label&, const juce::String& text);
     void saveMidiAs();
     void showGenerateMenu();
+    void buildPatternMenus();
+    void syncPatternMenus();
+    void setChoiceParam (const char* id, int index);
+    void undoOrRedo (bool undo);
 
     BlackMetalLookAndFeel lookAndFeel;
     BlackMetalDrumsProcessor& bmProcessor;
@@ -129,15 +136,16 @@ private:
     juce::ComboBox meterBox, barsBox, lengthBox, resolutionBox;
     juce::Label statusLabel;
     juce::TextButton generateButton { "Generate..." }, resetButton { "Reset" }, clearButton { "Clear" };
+    juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
 
     GridViewport viewport;
     StepGrid grid;
 
     MidiDragTile dragTile;
-    juce::TextButton saveButton { "Save .mid..." };
+    juce::TextButton saveButton { "Save .mid..." }, previewButton { "Preview" };
     juce::Label hintLabel;
 
-    std::unique_ptr<ComboAttachment> grooveAttachment, fillAttachment, fillEveryAttachment, triggerAttachment,
+    std::unique_ptr<ComboAttachment> fillEveryAttachment, triggerAttachment,
                                      cymbalAttachment;
     std::unique_ptr<ButtonAttachment> randomFillAttachment, crashAfterAttachment;
     std::unique_ptr<SliderAttachment> humanizeAttachment, accentAttachment, velocityAttachment, timingAttachment,
