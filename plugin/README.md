@@ -14,6 +14,11 @@ Requires: Apple Command Line Tools, `brew install cmake ninja`. JUCE 8.0.10 is i
 This builds the plugin, runs the engine and processor tests, installs the plugin to
 `~/Library/Audio/Plug-Ins/Components`, ad-hoc signs it, and runs `auval`.
 
+    ./package.sh
+
+This makes a universal build (Apple Silicon + Intel) and writes a `.pkg` installer and a
+`.zip` of the component to `../dist`. The plugin installed by `build.sh` is left alone.
+
 ## Use in Logic
 
 1. Create a Software Instrument track with your drum plugin.
@@ -112,8 +117,12 @@ Above the grid:
   Pasting keeps time positions across meters and resolutions. For example, a 4/4 bar pasted
   into a 3/4 bar loses its last beat, and a one-beat lane repeats to fill a 2-bar groove.
   The clipboard works across patterns.
-- **Undo / Redo** cover every grid edit: clicks, drags, paste, Generate, Reset, Clear, and
-  layout changes. Undo shows the pattern that changed.
+- **Undo / Redo** cover every grid and song edit: clicks, drags, paste, Generate, Reset, Clear,
+  presets, layout changes, and song sections. Undo shows what changed.
+- **Presets...** saves the pattern to your own library, or loads a saved pattern into this slot.
+  Loading replaces the slot's content, and **Reset** brings back the factory pattern. Presets are
+  `.bmpat` files in `~/Library/Application Support/BlackMetalDrums/Patterns/{Grooves,Fills}`,
+  available in every project.
 - **Preview** plays the selected groove while Logic is stopped. On the fill tab, the fill plays
   every bar. The track must be selected so Logic keeps the plugin running.
 - When note triggers are on, the groove tab follows the groove that's playing.
@@ -123,6 +132,9 @@ Above the grid:
 
 Drag the **Drag MIDI into Logic** tile onto the tracks area to get a region of the selected
 groove and its fills. **Save .mid...** writes the same thing to a file.
+
+**Export all...** writes every groove and fill as a separate MIDI file into a folder you choose.
+It uses the current kit map and humanize settings, and each pattern's suggested tempo.
 
 If you hear nothing, Logic may be skipping an empty track. Select the track (live mode) or
 put an empty MIDI region on it.

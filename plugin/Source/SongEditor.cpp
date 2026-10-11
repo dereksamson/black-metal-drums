@@ -225,6 +225,7 @@ void SongEditor::addSection()
 // Rows are rebuilt asynchronously: commit() can be called from inside a row's own callback.
 void SongEditor::commit (std::vector<Section> list)
 {
+    bmProcessor.history.beginSongEdit (bmProcessor.song);
     bmProcessor.song.assign (list);
     bmProcessor.songEdited();
     juce::Component::SafePointer<SongEditor> safe (this);

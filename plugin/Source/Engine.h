@@ -145,6 +145,84 @@ struct Hit
     double offsetMs;     // timing humanize, applied by the caller (depends on tempo)
 };
 
+inline int stepRandom (uint64_t key, int range) noexcept   // deterministic 0 .. range-1
+{
+    return (int) (mix (key) % (uint64_t) juce::jmax (1, range));
+}
+
+// Emits the hits of one step of a pattern, applying accents, kick balance, chance,
+// cymbal swap and humanize. posInBar/beat decide what counts as "on the beat".
+template <typename Emit>
+void emitStep (const Settings& s, const Pattern& p, bool isFill, int step, double t, double posInBar, double beat,
+               uint64_t key, bool addCrash, Emit& emit)
+{
+    const int swapLane = cymbalSwapLane (s.cymbal);
+    auto random = stepRandom;
+
+    const double offBeat = std::fmod (posInBar, beat);
+    const bool onBeat = offBeat < 1.0e-6 || beat - offBeat < 1.0e-6;
+    const bool downbeat = posInBar < 1.0e-6;
+    std::array<bool, 128> used {};   // two lanes mapped to the same note play it once
+
+    auto hit = [&] (int lane, int v, uint64_t laneKey)
+    {
+        float vel = (float) v;
+        if (onBeat && v >= 90)
+            vel += (float) s.accent;
+
+        // Second foot of a kick run is a little weaker.
+        if (lane == Kick && s.kickBalance > 0)
+        {
+            int run = 0;
+            while (run < 64 && step - run - 1 >= 0 && p.get (Kick, step - run - 1) > 0)
+                ++run;
+            if (run % 2 == 1)
+                vel -= (float) s.kickBalance;
+        }
+
+        vel *= s.velocityScale;
+        if (s.humanize > 0)
+            vel += (float) (random (laneKey, 2 * s.humanize + 1) - s.humanize);
+
+        double offsetMs = 0.0;
+        if (s.timingMs > 0.0f)
+        {
+            const int range = juce::roundToInt (s.timingMs * 10.0f);
+            offsetMs = (random (laneKey ^ 0x7111ULL, 2 * range + 1) - range) / 10.0;
+        }
+
+        const int note = s.notes[(size_t) lane];
+        if (! juce::isPositiveAndBelow (note, 128) || used[(size_t) note])
+            return;
+        used[(size_t) note] = true;
+        emit (Hit { t, note, juce::jlimit (1, 127, juce::roundToInt (vel)), offsetMs });
+    };
+
+    if (addCrash)
+        hit (Crash, 115, key ^ 0xC4A5ULL);
+
+    for (int lane = 0; lane < NumLanes; ++lane)
+    {
+        const int v = p.get (lane, step);
+        if (v == 0)
+            continue;
+
+        const auto laneKey = key ^ ((uint64_t) lane << 56);
+        if (const int chance = p.getChance (lane, step); chance < 100 && s.chanceAmount > 0.0f)
+        {
+            const float playProbability = 1.0f - (1.0f - (float) chance / 100.0f) * s.chanceAmount;
+            if ((float) random (laneKey ^ 0xCA11ULL, 1000) >= playProbability * 1000.0f)
+                continue;
+        }
+
+        int outLane = lane;
+        if (! isFill && swapLane >= 0 && isCymbalLane (lane) && ! ((lane == Crash || lane == Crash2) && downbeat))
+            outLane = swapLane;
+
+        hit (outLane, v, laneKey);
+    }
+}
+
 // Calls emit(Hit) for every hit whose grid time (PPQ) lies in [start, end).
 template <typename Emit>
 void renderHits (const Library& lib, const Settings& s, double start, double end, Emit&& emit)
@@ -152,77 +230,10 @@ void renderHits (const Library& lib, const Settings& s, double start, double end
     const auto& groove = *lib.grooves[(size_t) s.groove];
     const auto gl = groove.layout();
     const double beat = gl.beatQuarters();
-    const int swapLane = cymbalSwapLane (s.cymbal);
-
-    auto random = [] (uint64_t key, int range)   // deterministic 0 .. range-1
-    {
-        return (int) (mix (key) % (uint64_t) juce::jmax (1, range));
-    };
 
     auto playStep = [&] (const Pattern& p, bool isFill, int step, double t, double posInBar, uint64_t key, bool addCrash)
     {
-        const double offBeat = std::fmod (posInBar, beat);
-        const bool onBeat = offBeat < 1.0e-6 || beat - offBeat < 1.0e-6;
-        const bool downbeat = posInBar < 1.0e-6;
-        std::array<bool, 128> used {};   // two lanes mapped to the same note play it once
-
-        auto hit = [&] (int lane, int v, uint64_t laneKey)
-        {
-            float vel = (float) v;
-            if (onBeat && v >= 90)
-                vel += (float) s.accent;
-
-            // Second foot of a kick run is a little weaker.
-            if (lane == Kick && s.kickBalance > 0)
-            {
-                int run = 0;
-                while (run < 64 && step - run - 1 >= 0 && p.get (Kick, step - run - 1) > 0)
-                    ++run;
-                if (run % 2 == 1)
-                    vel -= (float) s.kickBalance;
-            }
-
-            vel *= s.velocityScale;
-            if (s.humanize > 0)
-                vel += (float) (random (laneKey, 2 * s.humanize + 1) - s.humanize);
-
-            double offsetMs = 0.0;
-            if (s.timingMs > 0.0f)
-            {
-                const int range = juce::roundToInt (s.timingMs * 10.0f);
-                offsetMs = (random (laneKey ^ 0x7111ULL, 2 * range + 1) - range) / 10.0;
-            }
-
-            const int note = s.notes[(size_t) lane];
-            if (! juce::isPositiveAndBelow (note, 128) || used[(size_t) note])
-                return;
-            used[(size_t) note] = true;
-            emit (Hit { t, note, juce::jlimit (1, 127, juce::roundToInt (vel)), offsetMs });
-        };
-
-        if (addCrash)
-            hit (Crash, 115, key ^ 0xC4A5ULL);
-
-        for (int lane = 0; lane < NumLanes; ++lane)
-        {
-            const int v = p.get (lane, step);
-            if (v == 0)
-                continue;
-
-            const auto laneKey = key ^ ((uint64_t) lane << 56);
-            if (const int chance = p.getChance (lane, step); chance < 100 && s.chanceAmount > 0.0f)
-            {
-                const float playProbability = 1.0f - (1.0f - (float) chance / 100.0f) * s.chanceAmount;
-                if ((float) random (laneKey ^ 0xCA11ULL, 1000) >= playProbability * 1000.0f)
-                    continue;
-            }
-
-            int outLane = lane;
-            if (! isFill && swapLane >= 0 && isCymbalLane (lane) && ! ((lane == Crash || lane == Crash2) && downbeat))
-                outLane = swapLane;
-
-            hit (outLane, v, laneKey);
-        }
+        emitStep (s, p, isFill, step, t, posInBar, beat, key, addCrash, emit);
     };
 
     const double eps = 1.0e-9;
@@ -262,6 +273,20 @@ void renderHits (const Library& lib, const Settings& s, double start, double end
                               mix ((uint64_t) bar * 2654435761ULL ^ ((uint64_t) k << 32) ^ 0xF1ULL), false);
             }
         }
+    }
+}
+
+// Every hit of one pattern on its own, from PPQ 0 (for exporting single patterns).
+template <typename Emit>
+void renderPatternAlone (const Settings& s, const Pattern& p, bool isFill, Emit&& emit)
+{
+    const auto l = p.layout();
+    const int perBar = l.stepsPerBar();
+    for (int k = 0; k < l.numSteps(); ++k)
+    {
+        const double t = k * l.stepLength();
+        emitStep (s, p, isFill, k, t, (k % perBar) * l.stepLength(), l.beatQuarters(),
+                  mix ((uint64_t) (k / perBar) * 1315423911ULL ^ (uint64_t) (k % perBar)), false, emit);
     }
 }
 

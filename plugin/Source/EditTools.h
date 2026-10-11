@@ -1,27 +1,44 @@
 #pragma once
 
-#include "Patterns.h"
+#include "Song.h"
 
 namespace bm
 {
 
-// Undo/redo over pattern edits (message thread only). Call beginEdit() just before
-// changing a pattern; undo() puts back what it was then.
+// What an undo or redo changed: a pattern, the song, or nothing.
+struct EditTarget
+{
+    Pattern* pattern = nullptr;
+    bool song = false;
+    explicit operator bool() const noexcept { return pattern != nullptr || song; }
+};
+
+// Undo/redo over pattern and song edits (message thread only). Call beginEdit() or
+// beginSongEdit() just before changing something; undo() puts back what it was then.
 class EditHistory
 {
 public:
     void beginEdit (Pattern&);
+    void beginSongEdit (Song&);
     void clear()                            { undoStack.clear(); redoStack.clear(); }
 
     bool canUndo() const noexcept           { return ! undoStack.empty(); }
     bool canRedo() const noexcept           { return ! redoStack.empty(); }
 
-    // Return the pattern that changed, or nullptr if there was nothing to do.
-    Pattern* undo();
-    Pattern* redo();
+    EditTarget undo();
+    EditTarget redo();
 
 private:
-    struct Entry { Pattern* pattern; PatternSnapshot state; };
+    struct Entry
+    {
+        Pattern* pattern = nullptr;
+        Song* song = nullptr;
+        PatternSnapshot state;
+        std::vector<Section> sections;
+    };
+    static Entry capture (Pattern*, Song*);
+    static EditTarget apply (const Entry&);
+    void push (Entry);
     static constexpr size_t maxEntries = 200;
     std::vector<Entry> undoStack, redoStack;
 };

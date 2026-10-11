@@ -253,11 +253,11 @@ int main()
         auto l = p.layout();
         l.res = bm::Resolution::ThirtySecond;
         p.setLayout (l);
-        check (history.undo() == &p && p.layout().numSteps() == 32 && p.get (bm::Tom1, 3) == 77, "undo layout");
-        check (history.undo() == &p && p.get (bm::Tom1, 3) == 0, "undo cell");
-        check (history.undo() == nullptr, "nothing more to undo");
-        check (history.redo() == &p && p.get (bm::Tom1, 3) == 77, "redo cell");
-        check (history.redo() == &p && p.layout().numSteps() == 64, "redo layout");
+        check (history.undo().pattern == &p && p.layout().numSteps() == 32 && p.get (bm::Tom1, 3) == 77, "undo layout");
+        check (history.undo().pattern == &p && p.get (bm::Tom1, 3) == 0, "undo cell");
+        check (! history.undo(), "nothing more to undo");
+        check (history.redo().pattern == &p && p.get (bm::Tom1, 3) == 77, "redo cell");
+        check (history.redo().pattern == &p && p.layout().numSteps() == 64, "redo layout");
         p.reset();
     }
 
@@ -330,6 +330,14 @@ int main()
             t = e;
         }
         check (whole == chunked, "song: chunked rendering");
+
+        // Song edits undo and redo.
+        bm::EditHistory songHistory;
+        songHistory.beginSongEdit (song);
+        song.assign ({ { 5, 8, 2, bm::Section::randomFill } });
+        check (songHistory.undo().song && song.size() == 3 && song.get (1).endFill == 3, "song undo");
+        check (songHistory.redo().song && song.size() == 1 && song.get (0).bars == 8, "song redo");
+        songHistory.undo();
 
         // Saved and restored.
         bm::Song copy;

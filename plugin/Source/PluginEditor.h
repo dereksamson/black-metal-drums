@@ -115,6 +115,9 @@ private:
     void syncPatternMenus();
     void setChoiceParam (const char* id, int index);
     void undoOrRedo (bool undo);
+    void showPresetMenu();
+    void savePresetAs();
+    void exportAll();
 
     BlackMetalLookAndFeel lookAndFeel;
     BlackMetalDrumsProcessor& bmProcessor;
@@ -137,7 +140,7 @@ private:
     juce::TextButton grooveTab { "Edit groove" }, fillTab { "Edit fill" }, songTab { "Song" };
     juce::ComboBox meterBox, barsBox, lengthBox, resolutionBox;
     juce::Label statusLabel;
-    juce::TextButton generateButton { "Generate..." }, resetButton { "Reset" }, clearButton { "Clear" };
+    juce::TextButton generateButton { "Generate..." }, presetsButton { "Presets..." }, resetButton { "Reset" }, clearButton { "Clear" };
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
 
     GridViewport viewport;
@@ -145,7 +148,7 @@ private:
     SongEditor songEditor;
 
     MidiDragTile dragTile;
-    juce::TextButton saveButton { "Save .mid..." }, previewButton { "Preview" };
+    juce::TextButton saveButton { "Save .mid..." }, exportAllButton { "Export all..." }, previewButton { "Preview" };
     juce::Label hintLabel;
 
     std::unique_ptr<ComboAttachment> fillEveryAttachment, triggerAttachment,

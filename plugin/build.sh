@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")"
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target BlackMetalDrums_AU EngineTest ProcessorTest
+cmake --build build --target BlackMetalDrums_AU EngineTest ProcessorTest ExportPatterns
 ./build/EngineTest_artefacts/Release/EngineTest
 ./build/ProcessorTest_artefacts/Release/ProcessorTest
 COMPONENT="$HOME/Library/Audio/Plug-Ins/Components/Black Metal Drums.component"

@@ -3,34 +3,56 @@
 namespace bm
 {
 
-void EditHistory::beginEdit (Pattern& p)
+EditHistory::Entry EditHistory::capture (Pattern* pattern, Song* song)
 {
-    undoStack.push_back ({ &p, p.snapshot() });
+    Entry e;
+    e.pattern = pattern;
+    e.song = song;
+    if (pattern != nullptr)
+        e.state = pattern->snapshot();
+    if (song != nullptr)
+        e.sections = song->all();
+    return e;
+}
+
+EditTarget EditHistory::apply (const Entry& e)
+{
+    if (e.pattern != nullptr)
+        e.pattern->restore (e.state);
+    if (e.song != nullptr)
+        e.song->assign (e.sections);
+    return { e.pattern, e.song != nullptr };
+}
+
+void EditHistory::push (Entry e)
+{
+    undoStack.push_back (std::move (e));
     if (undoStack.size() > maxEntries)
         undoStack.erase (undoStack.begin());
     redoStack.clear();
 }
 
-Pattern* EditHistory::undo()
+void EditHistory::beginEdit (Pattern& p)        { push (capture (&p, nullptr)); }
+void EditHistory::beginSongEdit (Song& song)    { push (capture (nullptr, &song)); }
+
+EditTarget EditHistory::undo()
 {
     if (undoStack.empty())
-        return nullptr;
+        return {};
     auto entry = std::move (undoStack.back());
     undoStack.pop_back();
-    redoStack.push_back ({ entry.pattern, entry.pattern->snapshot() });
-    entry.pattern->restore (entry.state);
-    return entry.pattern;
+    redoStack.push_back (capture (entry.pattern, entry.song));
+    return apply (entry);
 }
 
-Pattern* EditHistory::redo()
+EditTarget EditHistory::redo()
 {
     if (redoStack.empty())
-        return nullptr;
+        return {};
     auto entry = std::move (redoStack.back());
     redoStack.pop_back();
-    undoStack.push_back ({ entry.pattern, entry.pattern->snapshot() });
-    entry.pattern->restore (entry.state);
-    return entry.pattern;
+    undoStack.push_back (capture (entry.pattern, entry.song));
+    return apply (entry);
 }
 
 //==============================================================================

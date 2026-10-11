@@ -1,5 +1,6 @@
 // Runs the real processor against a simulated host transport to check note triggers.
 #include "../Source/PluginProcessor.h"
+#include "../Source/PatternFiles.h"
 #include <cstdio>
 
 namespace
@@ -173,6 +174,44 @@ int main()
         const auto hits = r.play (0.0, 8.0);
         check (hasNear (hits, 0.0, 38) && hasNear (hits, 3.5, 38), "song mode: hammer blast in bar 1");
         check (! anyIn (hits, 4.01, 8.0), "song mode: silent after the song");
+    }
+
+    // Presets round-trip layout and cells; export-all writes every pattern as a readable MIDI file.
+    {
+        const auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("bmd-test-" + juce::String (juce::Random::getSystemRandom().nextInt()));
+        bm::Library lib;
+        auto& g = *lib.grooves[0];
+        auto l = g.layout();
+        l.res = bm::Resolution::ThirtySecond;
+        g.setLayout (l);
+        g.set (bm::Tom2, 5, 88);
+        g.setChance (bm::Tom2, 5, 40);
+        const auto preset = dir.getChildFile ("mine.bmpat");
+        check (bm::savePreset (g, preset), "preset saved");
+        g.reset();
+        check (bm::loadPreset (g, preset) && g.layout().numSteps() == 64 && g.get (bm::Tom2, 5) == 88
+               && g.getChance (bm::Tom2, 5) == 40, "preset loaded");
+        g.reset();
+
+        bm::Settings s;
+        for (int lane = 0; lane < bm::NumLanes; ++lane) s.notes[(size_t) lane] = bm::defaultNotes[lane];
+        s.humanize = 0;
+        const int written = bm::exportAllPatterns (lib, s, 0.0, dir);
+        check (written == (int) (lib.grooves.size() + lib.fills.size()), "export all: file count");
+
+        const auto files = dir.getChildFile ("Grooves").findChildFiles (juce::File::findFiles, false, "01 *.mid");
+        int notes = 0;
+        if (files.size() == 1)
+        {
+            juce::FileInputStream in (files[0]);
+            juce::MidiFile midi;
+            if (midi.readFrom (in))
+                for (int t = 0; t < midi.getNumTracks(); ++t)
+                    for (auto* e : *midi.getTrack (t))
+                        notes += e->message.isNoteOn();
+        }
+        check (files.size() == 1 && files[0].getFileName().contains ("200bpm") && notes == 48, "export all: traditional blast file");
+        dir.deleteRecursively();
     }
 
     // Timing humanize across block boundaries: every kick still plays exactly once.

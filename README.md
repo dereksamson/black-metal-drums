@@ -12,11 +12,19 @@ Black metal (and wider metal) drum patterns, as MIDI files and as a Logic Pro pl
   - a fill generator
 
   See the [plugin README](plugin/README.md).
-- **[generate.py](generate.py)** — a standalone Python script (standard library only) that writes
-  General MIDI drum grooves and one-beat fills to [midi/](midi/). It covers only the first, smaller
-  set of black metal patterns.
+- **[midi/](midi/)** — every factory groove (35) and fill (23) as a standalone General MIDI file,
+  ready to drag into any DAW. Each file name includes a suggested tempo. The files come from the
+  plugin's own pattern engine; run `plugin/build/ExportPatterns_artefacts/Release/ExportPatterns midi`
+  after a build to regenerate them.
 
-## Quick start (plugin)
+## Install
+
+Download the `.pkg` from [Releases](https://github.com/dereksamson/black-metal-drums/releases).
+It's a universal build for Apple Silicon and Intel, and it installs into
+`/Library/Audio/Plug-Ins/Components`. The installer isn't notarised: right-click it and choose
+**Open** the first time.
+
+## Build from source (plugin)
 
     git clone --recurse-submodules https://github.com/dereksamson/black-metal-drums.git
     cd black-metal-drums/plugin
