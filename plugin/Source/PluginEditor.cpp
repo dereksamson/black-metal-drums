@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "FillGenerator.h"
+#include "PatternFiles.h"
 
 using namespace bm;
 
@@ -541,6 +542,9 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     generateButton.setTooltip ("Replace this fill with a generated one (keeps its length and resolution)");
     generateButton.onClick = [this] { showGenerateMenu(); };
     addAndMakeVisible (generateButton);
+    presetsButton.setTooltip ("Save this pattern to your library, or load one of your saved patterns into this slot");
+    presetsButton.onClick = [this] { showPresetMenu(); };
+    addAndMakeVisible (presetsButton);
     addAndMakeVisible (resetButton);
     addAndMakeVisible (clearButton);
 
@@ -553,6 +557,9 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     // Bottom
     saveButton.onClick = [this] { saveMidiAs(); };
     addAndMakeVisible (saveButton);
+    exportAllButton.setTooltip ("Write every groove and fill as separate MIDI files into a folder");
+    exportAllButton.onClick = [this] { exportAll(); };
+    addAndMakeVisible (exportAllButton);
     previewButton.setClickingTogglesState (true);
     previewButton.setTooltip ("Play the selected groove while Logic is stopped (the fill tab plays its fill every bar)");
     previewButton.onClick = [this] { bmProcessor.previewOn = previewButton.getToggleState(); };
@@ -695,9 +702,17 @@ void BlackMetalDrumsEditor::setChoiceParam (const char* id, int index)
 // Undo/redo, then show the pattern that changed so the edit is visible.
 void BlackMetalDrumsEditor::undoOrRedo (bool undo)
 {
-    auto* changed = undo ? bmProcessor.history.undo() : bmProcessor.history.redo();
-    if (changed == nullptr)
+    const auto target = undo ? bmProcessor.history.undo() : bmProcessor.history.redo();
+    if (! target)
         return;
+    if (target.song)
+    {
+        songTab.setToggleState (true, juce::sendNotification);
+        bmProcessor.songEdited();
+        songEditor.refreshIfChanged();
+        return;
+    }
+    auto* changed = target.pattern;
 
     const auto& lib = bmProcessor.library;
     for (size_t i = 0; i < lib.fills.size(); ++i)
@@ -730,8 +745,99 @@ void BlackMetalDrumsEditor::updateTabs()
     barsBox.setVisible (! song && ! isFill);
     lengthBox.setVisible (! song && isFill);
     generateButton.setVisible (! song && isFill);
-    for (auto* c : std::initializer_list<juce::Component*> { &resolutionBox, &undoButton, &redoButton, &resetButton, &clearButton })
+    for (auto* c : std::initializer_list<juce::Component*> { &resolutionBox, &presetsButton, &resetButton, &clearButton })
         c->setVisible (! song);
+}
+
+void BlackMetalDrumsEditor::showPresetMenu()
+{
+    if (shownPattern == nullptr)
+        return;
+    const bool fills = fillTab.getToggleState();
+    const auto files = listPresets (fills);
+
+    juce::PopupMenu menu, deleteMenu;
+    menu.addItem (500, "Save this " + juce::String (fills ? "fill" : "groove") + " as...");
+    if (! files.isEmpty())
+    {
+        menu.addSectionHeader ("Load into \"" + shownPattern->name + "\"");
+        for (int i = 0; i < files.size(); ++i)
+        {
+            menu.addItem (1 + i, files[i].getFileNameWithoutExtension());
+            deleteMenu.addItem (300 + i, files[i].getFileNameWithoutExtension());
+        }
+        menu.addSeparator();
+        menu.addSubMenu ("Delete saved " + juce::String (fills ? "fill" : "groove"), deleteMenu);
+    }
+    menu.addItem (501, "Show preset folder");
+
+    juce::Component::SafePointer<BlackMetalDrumsEditor> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetsButton),
+                        [safe, files, fills] (int result)
+                        {
+                            if (safe == nullptr || result == 0 || safe->shownPattern == nullptr)
+                                return;
+                            auto& self = *safe;
+                            if (result == 500)
+                                self.savePresetAs();
+                            else if (result == 501)
+                            {
+                                presetFolder (fills).createDirectory();
+                                presetFolder (fills).revealToUser();
+                            }
+                            else if (juce::isPositiveAndBelow (result - 300, files.size()))
+                                files[result - 300].moveToTrash();
+                            else if (juce::isPositiveAndBelow (result - 1, files.size()))
+                            {
+                                self.bmProcessor.history.beginEdit (*self.shownPattern);
+                                loadPreset (*self.shownPattern, files[result - 1]);
+                                self.bmProcessor.patternsEdited();
+                                self.syncGridPattern();
+                                self.refreshLayoutControls();
+                                self.grid.repaint();
+                            }
+                        });
+}
+
+void BlackMetalDrumsEditor::savePresetAs()
+{
+    const bool fills = fillTab.getToggleState();
+    presetFolder (fills).createDirectory();
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Save pattern", presetFolder (fills).getChildFile (juce::File::createLegalFileName (shownPattern->name) + ".bmpat"), "*.bmpat");
+
+    juce::Component::SafePointer<BlackMetalDrumsEditor> safe (this);
+    auto* pattern = shownPattern;
+    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [safe, pattern] (const juce::FileChooser& chooser)
+                              {
+                                  const auto target = chooser.getResult();
+                                  if (safe != nullptr && target != juce::File())
+                                      savePreset (*pattern, target.withFileExtension ("bmpat"));
+                              });
+}
+
+void BlackMetalDrumsEditor::exportAll()
+{
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Choose a folder for all patterns",
+        juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("Black Metal Drums MIDI"));
+
+    juce::Component::SafePointer<BlackMetalDrumsEditor> safe (this);
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories
+                                  | juce::FileBrowserComponent::canSelectFiles,
+                              [safe] (const juce::FileChooser& chooser)
+                              {
+                                  auto folder = chooser.getResult();
+                                  if (safe == nullptr || folder == juce::File())
+                                      return;
+                                  if (folder.existsAsFile())
+                                      folder = folder.getParentDirectory();
+                                  // Uses the current kit map and humanize settings, and each pattern's suggested tempo.
+                                  exportAllPatterns (safe->bmProcessor.library, safe->bmProcessor.currentSettings(), 0.0, folder);
+                                  folder.revealToUser();
+                              });
 }
 
 void BlackMetalDrumsEditor::showGenerateMenu()
@@ -1067,13 +1173,17 @@ void BlackMetalDrumsEditor::resized()
     tools.removeFromRight (6);
     resetButton.setBounds (tools.removeFromRight (70));
     tools.removeFromRight (6);
-    generateButton.setBounds (tools.removeFromRight (100));
+    generateButton.setBounds (tools.removeFromRight (96));
+    tools.removeFromRight (6);
+    presetsButton.setBounds (tools.removeFromRight (86));
 
     // Bottom bar.
     auto bottom = area.removeFromBottom (76).withTrimmedTop (12).withTrimmedBottom (14);
     dragTile.setBounds (bottom.removeFromLeft (240));
     bottom.removeFromLeft (12);
     saveButton.setBounds (bottom.removeFromLeft (110).withSizeKeepingCentre (110, 30));
+    bottom.removeFromLeft (8);
+    exportAllButton.setBounds (bottom.removeFromLeft (100).withSizeKeepingCentre (100, 30));
     bottom.removeFromLeft (8);
     previewButton.setBounds (bottom.removeFromLeft (90).withSizeKeepingCentre (90, 30));
     bottom.removeFromLeft (16);
