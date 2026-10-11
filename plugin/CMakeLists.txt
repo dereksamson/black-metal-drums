@@ -27,6 +27,7 @@ target_sources(BlackMetalDrums PRIVATE
     Source/KitMaps.cpp
     Source/FillGenerator.cpp
     Source/EditTools.cpp
+    Source/SongEditor.cpp
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 

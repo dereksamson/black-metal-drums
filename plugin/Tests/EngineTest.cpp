@@ -2,6 +2,7 @@
 #include "../Source/Engine.h"
 #include "../Source/FillGenerator.h"
 #include "../Source/EditTools.h"
+#include "../Source/Song.h"
 #include <cstdio>
 
 namespace
@@ -284,6 +285,56 @@ int main()
         bm::copyBarToAllBars (groove, 1);
         check (groove.get (bm::Crash, 0) == groove.get (bm::Crash, 16), "copy bar to all bars");
         groove.reset();
+    }
+
+    // 15. Song: sections chain in time (mixed meters), end fills, crash after fill, loop.
+    {
+        auto indexOf = [&] (const char* prefix)
+        {
+            for (size_t i = 0; i < lib.grooves.size(); ++i)
+                if (lib.grooves[i]->name.startsWith (prefix)) return (int) i;
+            return -1;
+        };
+        bm::Song song;
+        song.assign ({ { 0, 2, 0, bm::Section::noFill },                        // trad blast 4/4: 0 - 8
+                       { indexOf ("3/4 - Hammer"), 1, 0, 3 },                    // 3/4 + toms fill: 8 - 11
+                       { indexOf ("Skank"), 1, 0, bm::Section::noFill } });      // 4/4: 11 - 15
+        const auto placed = bm::placeSections (lib, song);
+        check (placed.count == 3 && std::abs (placed.length - 15.0) < 1.0e-9, "song placement");
+
+        bm::Settings base = s;
+        base.crashAfterFill = true;
+        std::vector<std::pair<double, int>> hits;
+        auto collect = [&] (const bm::Hit& h) { hits.push_back ({ h.ppq, h.note }); };
+        bm::renderSong (lib, base, placed, false, 0.0, 30.0, collect);
+
+        check (countNote (hits, 38, 8.0) == 1 && countNote (hits, 36, 8.0) == 1, "song: hammer starts at 8");
+        check (countNote (hits, 50, 10.0) == 1 && countNote (hits, 43, 10.75) == 1, "song: end fill on last beat of the 3/4 bar");
+        check (countNote (hits, 49, 11.0) == 1, "song: crash after the section's end fill");
+        bool pastEnd = false;
+        for (auto& h : hits) pastEnd = pastEnd || h.first >= 15.0;
+        check (! pastEnd, "song: silent after the end");
+
+        hits.clear();
+        bm::renderSong (lib, base, placed, true, 0.0, 30.0, collect);
+        check (countNote (hits, 36, 15.0) == 1 && countNote (hits, 38, 23.0) == 1, "song: loops");
+
+        // Chunked rendering matches one-shot rendering.
+        std::vector<std::pair<double, int>> whole, chunked;
+        bm::renderSong (lib, base, placed, true, 0.0, 45.0, [&] (const bm::Hit& h) { whole.push_back ({ h.ppq, h.note }); });
+        juce::Random r2 (3);
+        for (double t = 0.0; t < 45.0;)
+        {
+            const double e = std::min (45.0, t + (16 + r2.nextInt (1024)) * (200.0 / (60.0 * 48000.0)));
+            bm::renderSong (lib, base, placed, true, t, e, [&] (const bm::Hit& h) { chunked.push_back ({ h.ppq, h.note }); });
+            t = e;
+        }
+        check (whole == chunked, "song: chunked rendering");
+
+        // Saved and restored.
+        bm::Song copy;
+        copy.fromValueTree (song.toValueTree(), (int) lib.grooves.size(), (int) lib.fills.size());
+        check (copy.size() == 3 && copy.get (1).endFill == 3 && copy.get (1).bars == 1, "song: state round trip");
     }
 
     std::printf (failures == 0 ? "All engine tests passed\n" : "%d failures\n", failures);

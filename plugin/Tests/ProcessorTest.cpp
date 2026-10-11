@@ -165,6 +165,16 @@ int main()
         check (r.play (4.0, 8.0).empty(), "preview off: silent");
     }
 
+    // Song mode: plays the arrangement from bar 1, silent after the end.
+    {
+        Rig r;
+        r.proc.song.assign ({ { 3, 1, 0, bm::Section::noFill } });   // one bar of hammer blast
+        r.setParam ("songMode", 1);
+        const auto hits = r.play (0.0, 8.0);
+        check (hasNear (hits, 0.0, 38) && hasNear (hits, 3.5, 38), "song mode: hammer blast in bar 1");
+        check (! anyIn (hits, 4.01, 8.0), "song mode: silent after the song");
+    }
+
     // Timing humanize across block boundaries: every kick still plays exactly once.
     {
         Rig r;
