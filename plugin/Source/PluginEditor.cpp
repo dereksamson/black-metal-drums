@@ -6,6 +6,10 @@ using namespace bm;
 
 namespace
 {
+    const char* const guideUrl  = "https://github.com/dereksamson/black-metal-drums/blob/main/docs/USER_GUIDE.md";
+    const char* const issuesUrl = "https://github.com/dereksamson/black-metal-drums/issues";
+    const char* const repoUrl   = "https://github.com/dereksamson/black-metal-drums";
+
     struct Meter { int num, den; };
     const Meter meters[]      = { { 2, 4 }, { 3, 4 }, { 4, 4 }, { 5, 4 }, { 5, 8 }, { 6, 8 }, { 7, 8 }, { 9, 8 }, { 12, 8 } };
     const int barChoices[]    = { 1, 2, 3, 4, 5 };
@@ -416,6 +420,46 @@ void MidiDragTile::mouseDrag (const juce::MouseEvent& e)
 }
 
 //==============================================================================
+HelpOverlay::HelpOverlay (const juce::String& text)
+{
+    body.setMultiLine (true);
+    body.setReadOnly (true);
+    body.setScrollbarsShown (true);
+    body.setCaretVisible (false);
+    body.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+    body.setColour (juce::TextEditor::backgroundColourId, colours::panel);
+    body.setColour (juce::TextEditor::textColourId, colours::text);
+    body.setColour (juce::TextEditor::outlineColourId, colours::outline);
+    body.setText (text, false);
+    addAndMakeVisible (body);
+
+    closeButton.onClick = [this] { setVisible (false); };
+    addAndMakeVisible (closeButton);
+}
+
+void HelpOverlay::paint (juce::Graphics& g)
+{
+    g.fillAll (juce::Colours::black.withAlpha (0.6f));
+    g.setColour (colours::background);
+    g.fillRoundedRectangle (panel.toFloat(), 8.0f);
+    g.setColour (colours::blood);
+    g.drawRoundedRectangle (panel.toFloat(), 8.0f, 1.5f);
+    g.setColour (colours::text);
+    g.setFont (juce::FontOptions (16.0f).withStyle ("Bold"));
+    g.drawText ("QUICK REFERENCE", panel.withHeight (40).reduced (16, 0), juce::Justification::centredLeft);
+}
+
+void HelpOverlay::resized()
+{
+    panel = getLocalBounds().reduced (90, 50);
+    auto r = panel.reduced (16);
+    auto top = r.removeFromTop (28);
+    closeButton.setBounds (top.removeFromRight (80));
+    r.removeFromTop (8);
+    body.setBounds (r);
+}
+
+//==============================================================================
 BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     : AudioProcessorEditor (&p), bmProcessor (p), grid (p), songEditor (p), dragTile (p)
 {
@@ -571,6 +615,10 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     hintLabel.setFont (juce::FontOptions (11.5f));
     addAndMakeVisible (hintLabel);
     addAndMakeVisible (dragTile);
+
+    helpButton.setTooltip ("User guide, quick reference and support");
+    helpButton.onClick = [this] { showHelpMenu(); };
+    addAndMakeVisible (helpButton);
 
     knownKitMaps = builtInKitMaps();
     for (auto& m : userKitMaps())
@@ -747,6 +795,89 @@ void BlackMetalDrumsEditor::updateTabs()
     generateButton.setVisible (! song && isFill);
     for (auto* c : std::initializer_list<juce::Component*> { &resolutionBox, &presetsButton, &resetButton, &clearButton })
         c->setVisible (! song);
+}
+
+void BlackMetalDrumsEditor::showHelpMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem (1, "User guide (opens in your browser)");
+    menu.addItem (2, "Quick reference");
+    menu.addSeparator();
+    menu.addItem (3, "Report a problem or suggest a pattern...");
+    menu.addItem (4, "Project page on GitHub");
+    menu.addSeparator();
+    menu.addItem (5, juce::String ("Black Metal Drums ") + JucePlugin_VersionString + "  -  GNU AGPLv3", false, false);
+
+    juce::Component::SafePointer<BlackMetalDrumsEditor> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&helpButton),
+                        [safe] (int result)
+                        {
+                            if (safe == nullptr)
+                                return;
+                            switch (result)
+                            {
+                                case 1: juce::URL (guideUrl).launchInDefaultBrowser(); break;
+                                case 3: juce::URL (issuesUrl).launchInDefaultBrowser(); break;
+                                case 4: juce::URL (repoUrl).launchInDefaultBrowser(); break;
+                                case 2:
+                                    safe->helpOverlay = std::make_unique<HelpOverlay> (safe->quickReference());
+                                    safe->addAndMakeVisible (*safe->helpOverlay);
+                                    safe->helpOverlay->setBounds (safe->getLocalBounds());
+                                    break;
+                                default: break;
+                            }
+                        });
+}
+
+juce::String BlackMetalDrumsEditor::quickReference() const
+{
+    const auto& lib = bmProcessor.library;
+    juce::String t;
+    auto line = [&t] (const juce::String& s) { t << s << "\n"; };
+
+    line ("Full guide: ? > User guide (online).");
+    line ({});
+    line ("GRID");
+    line ("  Click              add / remove a hit");
+    line ("  Drag up / down     velocity");
+    line ("  Alt-click          ghost note        Cmd-click   accent");
+    line ("  Shift-drag         chance of playing (Shift-click: 100% <-> 50%)");
+    line ("  Right-click        copy / paste / clear a bar or a lane, set chance");
+    line ("  Click a drum name  choose the MIDI note it sends (Kit map... saves it)");
+    line ({});
+    line ("TOOLBAR");
+    line ("  Meter, bars or length, resolution (T = triplet). Undo / Redo cover grid and song edits.");
+    line ("  Presets: your own library.  Generate: new fill.  Reset: factory pattern.");
+    line ("  Preview: plays while Logic is stopped (keep the track selected).");
+    line ({});
+    line ("FEEL");
+    line ("  Humanize: velocity variation   Accent: on the beat   Velocity: overall level");
+    line ("  Timing: +/- ms                 Kick L/R: weaker second foot");
+    line ("  Chance: how much per-step chances apply (0% = every hit plays)");
+    line ({});
+    line ("ARRANGING");
+    line ("  Automation: Groove, Fill and Fill every are automatable.");
+    line ("  Note trigger Latch / Hold: draw groove keys (from C-2) and fill keys (from C6).");
+    line ("    Latch: until the next groove key.  Hold: only while held (gaps are silent).");
+    line ("  Song tab: sections of groove x bars with fills; turn on Song mode, play from bar 1.");
+    line ({});
+    line ("EXPORT");
+    line ("  Drag MIDI tile -> Logic tracks area.  Save .mid.  Export all: every pattern as files.");
+    line ({});
+    line ("NO SOUND?");
+    line ("  Select the track; Logic doesn't always run plugins on an empty track that isn't selected.");
+    line ("  Wrong drum sounds: click the drum's name in the grid and pick the note your kit uses.");
+    line ({});
+
+    auto keyName = [] (int note) { return juce::MidiMessage::getMidiNoteName (note, true, true, 3).paddedRight (' ', 6); };
+    line ("GROOVE KEYS (note trigger)");
+    for (size_t i = 0; i < lib.grooves.size(); ++i)
+        line ("  " + keyName (BlackMetalDrumsProcessor::grooveKeyBase + (int) i) + lib.grooves[i]->name);
+    line ({});
+    line ("FILL KEYS (note trigger)");
+    for (size_t i = 0; i < lib.fills.size(); ++i)
+        line ("  " + keyName (BlackMetalDrumsProcessor::fillKeyBase + (int) i) + lib.fills[i]->name);
+    return t;
 }
 
 void BlackMetalDrumsEditor::showPresetMenu()
@@ -1093,7 +1224,7 @@ void BlackMetalDrumsEditor::paint (juce::Graphics& g)
 
     g.setColour (colours::dimText);
     g.setFont (juce::FontOptions (11.0f));
-    g.drawText ("MIDI FX  -  channel 10", header, juce::Justification::centredRight);
+    g.drawText ("MIDI FX  -  channel 10", header.withTrimmedRight (44), juce::Justification::centredRight);
 
     // Separator above the kit / trigger row.
     g.setColour (colours::outline);
@@ -1102,6 +1233,10 @@ void BlackMetalDrumsEditor::paint (juce::Graphics& g)
 
 void BlackMetalDrumsEditor::resized()
 {
+    helpButton.setBounds (getWidth() - 20 - 32, 10, 32, 28);
+    if (helpOverlay != nullptr)
+        helpOverlay->setBounds (getLocalBounds());
+
     auto area = getLocalBounds().reduced (20, 0);
     area.removeFromTop (58);
 
