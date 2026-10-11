@@ -345,6 +345,30 @@ int main()
         check (copy.size() == 3 && copy.get (1).endFill == 3 && copy.get (1).bars == 1, "song: state round trip");
     }
 
+    // 16. Swing: off-16ths move toward the triplet position; triplet grids and 12/8 stay put.
+    {
+        s = bm::Settings {};
+        for (int lane = 0; lane < bm::NumLanes; ++lane) s.notes[(size_t) lane] = bm::defaultNotes[lane];
+        s.fillEvery = 0;
+        auto kickTimes = [&] (int groove)
+        {
+            s.groove = groove;
+            std::vector<double> t;
+            bm::renderHits (lib, s, 0.0, 1.0, [&] (const bm::Hit& h) { if (h.note == 36) t.push_back (h.ppq + h.offsetPpq); });
+            return t;
+        };
+        s.swing = 1.0f;
+        const auto dk = kickTimes (7);   // double kick 16ths
+        check (dk.size() == 4 && std::abs (dk[0]) < 1e-9 && std::abs (dk[1] - 1.0 / 3.0) < 1e-9
+               && std::abs (dk[2] - 0.5) < 1e-9 && std::abs (dk[3] - 0.5 - 1.0 / 3.0) < 1e-9, "full swing on 16ths");
+        s.swing = 0.5f;
+        const auto half = kickTimes (7);
+        check (half.size() == 4 && std::abs (half[1] - (0.25 + 1.0 / 24.0)) < 1e-9, "half swing");
+        const auto mgla = kickTimes (34);   // 12/8 triplet double kick: compound meter, no swing
+        check (mgla.size() == 2 && std::abs (mgla[1] - 0.5) < 1e-9, "no swing in 12/8");
+        s.swing = 0.0f;
+    }
+
     std::printf (failures == 0 ? "All engine tests passed\n" : "%d failures\n", failures);
     return failures == 0 ? 0 : 1;
 }

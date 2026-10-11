@@ -511,7 +511,21 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     triggerInfo.setFont (juce::FontOptions (11.5f));
     addAndMakeVisible (triggerInfo);
 
+    timeFeelBox.addItemList ({ "Normal", "Half-time", "Double-time" }, 1);
+    timeFeelBox.setTooltip ("Play every pattern at half or twice the speed, without editing it");
+    addAndMakeVisible (timeFeelBox);
+    setupCaption (timeFeelCaption, "TIME FEEL");
+    timeFeelCaption.setJustificationType (juce::Justification::centredRight);
+    swingSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    swingSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 48, 20);
+    swingSlider.setTooltip ("Delays every second 8th/16th/32nd towards the triplet position (straight grids only)");
+    addAndMakeVisible (swingSlider);
+    setupCaption (swingCaption, "SWING");
+    swingCaption.setJustificationType (juce::Justification::centredRight);
+
     auto& apvts = bmProcessor.params;
+    timeFeelAttachment = std::make_unique<ComboAttachment> (apvts, "timeFeel", timeFeelBox);
+    swingAttachment    = std::make_unique<SliderAttachment> (apvts, "swing", swingSlider);
     fillEveryAttachment   = std::make_unique<ComboAttachment> (apvts, "fillEvery", fillEveryBox);
     triggerAttachment     = std::make_unique<ComboAttachment> (apvts, "trigger", triggerBox);
     randomFillAttachment  = std::make_unique<ButtonAttachment> (apvts, "randomFill", randomFillButton);
@@ -624,7 +638,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     for (auto& m : userKitMaps())
         knownKitMaps.push_back (m);
 
-    setSize (1140, 720);
+    setSize (1180, 720);
     syncGridPattern();
     updateStatus();
     startTimerHz (30);
@@ -854,6 +868,7 @@ juce::String BlackMetalDrumsEditor::quickReference() const
     line ("  Humanize: velocity variation   Accent: on the beat   Velocity: overall level");
     line ("  Timing: +/- ms                 Kick L/R: weaker second foot");
     line ("  Chance: how much per-step chances apply (0% = every hit plays)");
+    line ("  Time feel: half-time / double-time.  Swing: off-steps toward the triplet (straight grids)");
     line ({});
     line ("ARRANGING");
     line ("  Automation: Groove, Fill and Fill every are automatable.");
@@ -1131,10 +1146,9 @@ void BlackMetalDrumsEditor::updateStatus()
     const int fillBase = BlackMetalDrumsProcessor::fillKeyBase;
 
     triggerInfo.setText (mode == BlackMetalDrumsProcessor::TriggerOff
-                             ? juce::String ("Groove and fill follow the menus above")
-                             : "Grooves " + noteName (base) + "-" + noteName (base + numGrooves - 1) + ",  fills "
-                                   + noteName (fillBase) + "-" + noteName (fillBase + numFills - 1)
-                                   + (mode == BlackMetalDrumsProcessor::TriggerHold ? "  (plays while held)" : "  (latches)"),
+                             ? juce::String ("Groove and fill follow the menus")
+                             : "Keys: grooves " + noteName (base) + "-" + noteName (base + numGrooves - 1) + ", fills "
+                                   + noteName (fillBase) + "-" + noteName (fillBase + numFills - 1),
                          juce::dontSendNotification);
 
     // Status: what is playing, and whether Logic's meter matches the groove.
@@ -1179,7 +1193,7 @@ void BlackMetalDrumsEditor::timerCallback()
                                       ? bmProcessor.currentSection() : -1);
     updateStatus();
 
-    const double ppq = bmProcessor.playheadPpq.load();
+    const double ppq = bmProcessor.patternPlayhead();
     if (ppq < 0.0)
     {
         grid.setPlayStep (-1);
@@ -1282,6 +1296,13 @@ void BlackMetalDrumsEditor::resized()
     row2.removeFromLeft (6);
     triggerBox.setBounds (row2.removeFromLeft (90));
     row2.removeFromLeft (12);
+    swingSlider.setBounds (row2.removeFromRight (170));
+    swingCaption.setBounds (row2.removeFromRight (56));
+    row2.removeFromRight (12);
+    timeFeelBox.setBounds (row2.removeFromRight (120));
+    row2.removeFromRight (6);
+    timeFeelCaption.setBounds (row2.removeFromRight (76));
+    row2.removeFromRight (12);
     triggerInfo.setBounds (row2);
 
     // Grid toolbar.

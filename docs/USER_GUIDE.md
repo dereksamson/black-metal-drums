@@ -56,7 +56,7 @@ isn't selected.
 | Area | What it does |
 |---|---|
 | **Top row** | Groove, cymbal swap, fill, fill frequency, crash after fill, and the feel knobs |
-| **Second row** | Kit map, note-trigger mode, and the trigger key ranges |
+| **Second row** | Kit map, note-trigger mode and key ranges, time feel, swing |
 | **Tabs** | **Edit groove** and **Edit fill** show the step grid; **Song** shows the arrangement |
 | **Grid toolbar** | Meter, bars or length, resolution, Undo/Redo, Presets, Generate, Reset, Clear |
 | **Grid** | One row per drum, one column per step. The playing step is highlighted |
@@ -88,6 +88,19 @@ at the chorus.
 | **Timing** | Random timing variation, ± ms. Off by default, which keeps the tight, "triggered" sound of modern black metal |
 | **Kick L/R** | Makes every second kick in a double-kick run weaker, like a real weaker foot |
 | **Chance** | How much the per-step chances apply (see [Chance](#chance)). At 0 % every hit always plays |
+
+Two more controls on the second row change the feel of every pattern without editing it:
+
+- **Time feel**:
+  - **Half-time** plays patterns at half speed. A blast becomes a half-time blast over the
+    same riff, with each pattern bar spanning two of Logic's bars.
+  - **Double-time** plays them twice as fast.
+  - Fills, song sections and note triggers follow the new speed, and exports contain what
+    you hear.
+- **Swing**: delays every second step towards the triplet position. 100 % gives a full
+  shuffle, so a straight d-beat or blast slides towards a ternary feel. It works on straight
+  grids (1/8, 1/16, 1/32). Triplet grids and 6/8, 9/8 and 12/8 grooves are already ternary and
+  stay as they are.
 
 None of this variation is random from one playback to the next. A given bar sounds the same
 every time you play it and in every export, but different bars vary.
