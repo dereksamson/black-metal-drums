@@ -1,0 +1,62 @@
+name: Release
+
+# Push a tag vX.Y.Z (matching the version in plugin/CMakeLists.txt) to build the universal
+# installer and publish a GitHub release with it.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check the tag matches the plugin version
+        run: |
+          VERSION=$(sed -n 's/^project(BlackMetalDrums VERSION \([0-9.]*\))/\1/p' plugin/CMakeLists.txt)
+          echo "Plugin version $VERSION, tag $GITHUB_REF_NAME"
+          test "v$VERSION" = "$GITHUB_REF_NAME"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install build tools
+        run: brew install ninja
+
+      - name: Build, test and validate
+        run: plugin/build.sh
+
+      - name: Universal build and installer
+        run: plugin/package.sh
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; uploading the files to it"
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            exit 0
+          fi
+          {
+            echo "## Install"
+            echo
+            echo "1. Download **\`BlackMetalDrums-$VERSION.pkg\`** below. It's a universal build, for Apple Silicon and Intel."
+            echo "2. The installer isn't notarised. The first time, **right-click it → Open**."
+            echo "3. Restart Logic. Then, on a drum track, choose **MIDI FX → Audio Units → Grosbug → Black Metal Drums**."
+            echo
+            echo "To install by hand, unzip \`BlackMetalDrums-$VERSION-component.zip\` into \`~/Library/Audio/Plug-Ins/Components\`."
+            echo "See the [user guide](https://github.com/dereksamson/black-metal-drums/blob/main/docs/USER_GUIDE.md)."
+            echo
+            echo "## Checksums (SHA-256)"
+            echo
+            echo '```'
+            (cd dist && shasum -a 256 *)
+            echo '```'
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --title "Black Metal Drums $VERSION" \
+            --notes-file notes.md --generate-notes

@@ -1,5 +1,7 @@
 # Black Metal Drums
 
+[![CI](https://github.com/dereksamson/black-metal-drums/actions/workflows/ci.yml/badge.svg)](https://github.com/dereksamson/black-metal-drums/actions/workflows/ci.yml)
+
 Black metal (and wider metal) drum patterns, as MIDI files and as a Logic Pro plugin.
 
 - **[plugin/](plugin/)** — *Black Metal Drums*, an Audio Unit MIDI FX for Logic Pro. It plays

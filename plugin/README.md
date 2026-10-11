@@ -17,6 +17,21 @@ JUCE 8.0.10 is a git submodule in `external/JUCE`; clone with `--recurse-submodu
 The version is set in `CMakeLists.txt` (`project(... VERSION ...)`) and shown in the plugin's
 **? > About** menu.
 
+## CI and releases
+
+- **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs on every push to `main`
+  and on every pull request, on a macOS runner:
+  - `build.sh`: build, all tests, and `auval`
+  - a check that `midi/` matches the factory patterns. After changing a pattern, run
+    `ExportPatterns ../midi` and commit the result.
+- **Releasing** ([.github/workflows/release.yml](../.github/workflows/release.yml)):
+  1. Bump `project(BlackMetalDrums VERSION x.y.z)` in `CMakeLists.txt`.
+  2. Merge to `main`.
+  3. Push a tag: `git tag vx.y.z && git push origin vx.y.z`.
+
+  The workflow checks that the tag matches the version, builds and tests, runs `package.sh`, and
+  publishes a GitHub release with the `.pkg`, the `.zip`, checksums and generated notes.
+
 ## Code map
 
 | File | Role |
