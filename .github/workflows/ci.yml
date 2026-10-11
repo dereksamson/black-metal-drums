@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools
+        run: brew install ninja
+
+      - name: Build, test and validate (auval)
+        run: plugin/build.sh
+
+      - name: Check midi/ matches the factory patterns
+        run: |
+          rm -rf midi
+          plugin/build/ExportPatterns_artefacts/Release/ExportPatterns midi
+          git status --porcelain midi
+          test -z "$(git status --porcelain midi)" || { echo "midi/ is out of date: run ExportPatterns midi and commit"; exit 1; }
