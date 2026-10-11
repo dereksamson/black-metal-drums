@@ -416,7 +416,7 @@ void MidiDragTile::mouseDrag (const juce::MouseEvent& e)
 
 //==============================================================================
 BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
-    : AudioProcessorEditor (&p), bmProcessor (p), grid (p), dragTile (p)
+    : AudioProcessorEditor (&p), bmProcessor (p), grid (p), songEditor (p), dragTile (p)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -480,13 +480,15 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     crashAfterAttachment  = std::make_unique<ButtonAttachment> (apvts, "crashAfterFill", crashAfterButton);
 
     // Grid toolbar
-    for (auto* tab : { &grooveTab, &fillTab })
+    songTab.setTooltip ("Arrange sections into a song");
+    for (auto* tab : { &grooveTab, &fillTab, &songTab })
     {
         tab->setClickingTogglesState (true);
         tab->setRadioGroupId (1);
-        tab->onClick = [this] { syncGridPattern(); };
+        tab->onClick = [this] { syncGridPattern(); updateTabs(); };
         addAndMakeVisible (*tab);
     }
+    addChildComponent (songEditor);
     grooveTab.setToggleState (true, juce::dontSendNotification);
 
     for (int i = 0; i < (int) std::size (meters); ++i)
@@ -638,6 +640,7 @@ void BlackMetalDrumsEditor::refreshLayoutControls()
     barsBox.setVisible (! isFill);
     lengthBox.setVisible (isFill);
     generateButton.setVisible (isFill);
+    updateTabs();
 
     for (int i = 0; i < (int) std::size (meters); ++i)
         if (meters[i].num == l.num && meters[i].den == l.den)
@@ -660,33 +663,10 @@ void BlackMetalDrumsEditor::refreshLayoutControls()
 
 void BlackMetalDrumsEditor::buildPatternMenus()
 {
-    const auto& lib = bmProcessor.library;
-
     grooveBox.clear (juce::dontSendNotification);
-    for (const auto& category : grooveCategoryOrder())
-    {
-        bool first = true;
-        for (size_t i = 0; i < lib.grooves.size(); ++i)
-            if (grooveCategory (lib.grooves[i]->name) == category)
-            {
-                if (std::exchange (first, false))
-                    grooveBox.addSectionHeading (category);
-                grooveBox.addItem (lib.grooves[i]->name, (int) i + 1);
-            }
-    }
-
+    addGrooveItems (grooveBox, bmProcessor.library);
     fillBox.clear (juce::dontSendNotification);
-    for (const auto& category : fillCategoryOrder())
-    {
-        bool first = true;
-        for (size_t i = 0; i < lib.fills.size(); ++i)
-            if (fillCategory (lib.fills[i]->factoryLayout()) == category)
-            {
-                if (std::exchange (first, false))
-                    fillBox.addSectionHeading (category);
-                fillBox.addItem (lib.fills[i]->name, (int) i + 1);
-            }
-    }
+    addFillItems (fillBox, bmProcessor.library);
     syncPatternMenus();
 }
 
@@ -737,6 +717,21 @@ void BlackMetalDrumsEditor::undoOrRedo (bool undo)
     syncPatternMenus();
     syncGridPattern();
     grid.repaint();
+}
+
+// The Song tab swaps the grid and its tools for the song editor.
+void BlackMetalDrumsEditor::updateTabs()
+{
+    const bool song = songTab.getToggleState();
+    const bool isFill = fillTab.getToggleState();
+    songEditor.setVisible (song);
+    viewport.setVisible (! song);
+    meterBox.setVisible (! song && ! isFill);
+    barsBox.setVisible (! song && ! isFill);
+    lengthBox.setVisible (! song && isFill);
+    generateButton.setVisible (! song && isFill);
+    for (auto* c : std::initializer_list<juce::Component*> { &resolutionBox, &undoButton, &redoButton, &resetButton, &clearButton })
+        c->setVisible (! song);
 }
 
 void BlackMetalDrumsEditor::showGenerateMenu()
@@ -919,6 +914,14 @@ void BlackMetalDrumsEditor::updateStatus()
                + juce::String (gl.num) + "/" + juce::String (gl.den) + " - match them so bars line up";
         colour = colours::blood.brighter (0.6f);
     }
+    else if (bmProcessor.songMode())
+    {
+        const int section = bmProcessor.currentSection();
+        text = bmProcessor.song.size() == 0 ? juce::String ("Song mode: no sections yet (Song tab)")
+               : section < 0 ? juce::String ("Song mode: past the end of the song")
+               : "Song mode: section " + juce::String (section + 1) + " of " + juce::String (bmProcessor.song.size())
+                     + "  -  " + groove.name;
+    }
     else if (mode != BlackMetalDrumsProcessor::TriggerOff)
     {
         text = s.grooveMuted ? juce::String ("Hold: no groove key down") : "Playing: " + groove.name;
@@ -934,6 +937,9 @@ void BlackMetalDrumsEditor::timerCallback()
     undoButton.setEnabled (bmProcessor.history.canUndo());
     redoButton.setEnabled (bmProcessor.history.canRedo());
     bmProcessor.previewFillEveryBar = fillTab.getToggleState();
+    songEditor.refreshIfChanged();
+    songEditor.setPlayingSection (bmProcessor.songMode() && bmProcessor.playheadPpq.load() >= 0.0
+                                      ? bmProcessor.currentSection() : -1);
     updateStatus();
 
     const double ppq = bmProcessor.playheadPpq.load();
@@ -1043,6 +1049,8 @@ void BlackMetalDrumsEditor::resized()
     grooveTab.setBounds (tools.removeFromLeft (110));
     tools.removeFromLeft (6);
     fillTab.setBounds (tools.removeFromLeft (110));
+    tools.removeFromLeft (6);
+    songTab.setBounds (tools.removeFromLeft (80));
     tools.removeFromLeft (16);
     auto layoutControls = tools.removeFromLeft (80 + 6 + 90);
     meterBox.setBounds (layoutControls.removeFromLeft (80));
@@ -1074,5 +1082,6 @@ void BlackMetalDrumsEditor::resized()
 
     area.removeFromTop (8);
     viewport.setBounds (area);
+    songEditor.setBounds (area);
     updateGridSize();
 }

@@ -62,6 +62,28 @@ Set **Note trigger** to **Latch** or **Hold**. Then draw notes on the track to a
   passed on to the drum plugin; drum notes you draw are.
 - The exact key ranges are shown next to the trigger control.
 
+### Song mode
+
+The **Song** tab arranges sections. Each section has:
+- a groove
+- a length in bars
+- optional fills every 1, 2, 4 or 8 bars
+- an **end of section** fill on its last bar: a chosen fill, random, or none
+
+Use **+ Add section** to add one with the current Groove and Fill. The row buttons move a
+section up or down (^ v), duplicate it (+) and delete it (x).
+
+Turn on **Song mode** and playback follows the arrangement from bar 1 of the project.
+- Note triggers and the Groove/Fill menus are ignored while it's on.
+- The humanize, cymbal, chance and kit map controls still apply.
+- With **Crash after fill**, a section that follows a fill starts with a crash.
+- **Loop song** repeats the song; otherwise it goes silent after the last section.
+- The playing section is highlighted.
+- Sections can use different meters. Set matching time signatures in Logic at each section;
+  the summary warns when meters change.
+- In song mode, **Drag MIDI** and **Save .mid** export the whole song as one file, with a time
+  signature change wherever the meter changes.
+
 ### Meter, length and resolution
 
 Above the grid:

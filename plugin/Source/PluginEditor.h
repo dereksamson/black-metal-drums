@@ -3,6 +3,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include "PluginProcessor.h"
+#include "SongEditor.h"
 
 namespace bm::colours
 {
@@ -110,6 +111,7 @@ private:
     void saveMidiAs();
     void showGenerateMenu();
     void buildPatternMenus();
+    void updateTabs();
     void syncPatternMenus();
     void setChoiceParam (const char* id, int index);
     void undoOrRedo (bool undo);
@@ -132,7 +134,7 @@ private:
     juce::ComboBox triggerBox;
 
     // Grid toolbar
-    juce::TextButton grooveTab { "Edit groove" }, fillTab { "Edit fill" };
+    juce::TextButton grooveTab { "Edit groove" }, fillTab { "Edit fill" }, songTab { "Song" };
     juce::ComboBox meterBox, barsBox, lengthBox, resolutionBox;
     juce::Label statusLabel;
     juce::TextButton generateButton { "Generate..." }, resetButton { "Reset" }, clearButton { "Clear" };
@@ -140,6 +142,7 @@ private:
 
     GridViewport viewport;
     StepGrid grid;
+    SongEditor songEditor;
 
     MidiDragTile dragTile;
     juce::TextButton saveButton { "Save .mid..." }, previewButton { "Preview" };

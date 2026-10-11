@@ -44,6 +44,7 @@ struct Settings
 
     CymbalSwap cymbal = CymbalSwap::AsWritten;
     bool crashAfterFill = false;   // add a crash on the downbeat after each fill
+    bool crashOnFirstBar = false;  // ...including bar 0, when the previous song section ended in a fill
     float chanceAmount = 1.0f;     // 0 = ignore per-step chances, 1 = apply them fully
     int kickBalance = 0;           // velocity taken off the second foot in kick runs
     float timingMs = 0.0f;         // +/- timing humanize
@@ -237,7 +238,7 @@ void renderHits (const Library& lib, const Settings& s, double start, double end
             const int perBar = gl.stepsPerBar();
             const int first = (int) floorMod (bar, gl.bars) * perBar;
             const bool crashHere = s.crashAfterFill && groove.get (Crash, first) == 0
-                                   && fillForBar (lib, s, bar - 1) >= 0;
+                                   && (fillForBar (lib, s, bar - 1) >= 0 || (bar == 0 && s.crashOnFirstBar));
             for (int k = 0; k < perBar; ++k)
             {
                 const double t = b.start + k * gl.stepLength();

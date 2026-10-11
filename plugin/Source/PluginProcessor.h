@@ -6,6 +6,7 @@
 #include "Engine.h"
 #include "KitMaps.h"
 #include "EditTools.h"
+#include "Song.h"
 
 class BlackMetalDrumsProcessor : public juce::AudioProcessor
 {
@@ -50,8 +51,14 @@ public:
 
     TriggerMode triggerMode() const;
 
-    // Renders the selected groove + fills into a temp .mid file.
+    // Renders the selected groove + fills (or the whole song, in song mode) into a temp .mid file.
     juce::File exportMidiFile() const;
+
+    bool songMode() const;
+    bool songLoops() const;
+    // Song section at the playhead (or at the start when stopped); -1 if none.
+    int currentSection() const;
+    void songEdited()                                                   { patternsEdited(); }
 
     bm::NoteMap getNoteMap() const;
     void setNoteMap (const bm::NoteMap&);
@@ -60,6 +67,7 @@ public:
     void patternsEdited();
 
     bm::Library library;
+    bm::Song song;
     std::array<std::atomic<int>, bm::NumLanes> noteMap;
     juce::AudioProcessorValueTreeState params;
 
@@ -97,6 +105,8 @@ private:
     std::atomic<float>* pChance = nullptr;
     std::atomic<float>* pKickBalance = nullptr;
     std::atomic<float>* pTiming = nullptr;
+    std::atomic<float>* pSongMode = nullptr;
+    std::atomic<float>* pSongLoop = nullptr;
 
     double sampleRate = 44100.0;
     std::array<int, 128> pendingOff {};   // samples until note-off, -1 = none
