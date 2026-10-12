@@ -56,7 +56,12 @@ int main()
                              33,                                           // 12/8
                              26, 32, 32, 47, 69,                           // iconic / polymeter
                              36, 28, 26, 60,                               // ternary 4/4
-                             26, 24, 36 };                                 // ternary 12/8
+                             26, 24, 36,                                   // ternary 12/8
+                             32, 48, 56,                                   // second wave
+                             64, 48, 33, 15, 17,                           // atmospheric / DSBM
+                             64, 32,                                       // war metal
+                             31, 37,                                       // death
+                             15, 13 };                                     // doom
     for (auto& e : bm::factoryPatternErrors())
         check (false, e);
     check (lib.grooves.size() == std::size (expected), "groove count");

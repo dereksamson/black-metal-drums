@@ -224,6 +224,73 @@ namespace
                 { Ride, "... x.. x.. x.. | x.. x.. x.. x.." },
                 { Kick, "xxx xxx xxx xxx | xxx xxx xxx xxx" },
                 { Snare, "... X.. ... X.. | ... X.. ... X.." } } },
+
+            // Subgenres: second wave, atmospheric/DSBM/blackgaze, war metal, death, doom.
+            { "2nd wave - Fast polka (Darkthrone-style)", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... .... .... | .... .... .... ...." },
+                { HiHatOpen, "..x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Kick, "x... x... x... x... | x... x... x... x..." },
+                { Snare, "..x. ..x. ..x. ..x. | ..x. ..x. ..x. ..x." } } },
+            { "2nd wave - Blast, crash on 1 and 3 (Emperor-style)", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... x... .... | x... .... x... ...." },
+                { Ride, "..x. x.x. ..x. x.x. | ..x. x.x. ..x. x.x." },
+                { Kick, "x.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Snare, ".x.x .x.x .x.x .x.x | .x.x .x.x .x.x .x.x" } } },
+            { "2nd wave - Bomb with ride bell (Hellhammer-style)", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... .... .... | .... .... .... ...." },
+                { Bell, ".... x... x... x... | x... x... x... x..." },
+                { Kick, "xxxx xxxx xxxx xxxx | xxxx xxxx xxxx xxxx" },
+                { Snare, "x.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." } } },
+            { "Atmospheric - Washed blast (ride 16ths)", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... .... .... | .... .... .... ...." },
+                { Ride, ".6x6 x6x6 x6x6 x6x6 | x6x6 x6x6 x6x6 x6x6" },
+                { Kick, "x.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Snare, ".x.x .x.x .x.x .x.x | .x.x .x.x .x.x .x.x" } } },
+            { "Atmospheric - Tom-wash blast (blackgaze)", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... x... .... | x... .... x... ...." },
+                { Floor, "..x. x.x. ..x. x.x. | ..x. x.x. ..x. x.x." },
+                { Kick, "x.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Snare, ".x.x .x.x .x.x .x.x | .x.x .x.x .x.x .x.x" } } },
+            { "Atmospheric - Driving post-black 8ths", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... .... .... | .... .... .... ...." },
+                { Bell, "..x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Kick, "x.x. ..x. x... x.x. | x.x. ..x. x.x. ..xx" },
+                { Snare, ".... X... .... X... | .... X... .... X..." } } },
+            { "DSBM - Half-time dirge", { 4, 4, 2, r16 }, {
+                { Crash, "X... x... x... x... | x... x... x... x..." },
+                { Kick, "x... .... .... ..x. | x... ..x. .... ...." },
+                { Snare, ".... .... X... .... | .... .... X... ...g" } } },
+            { "DSBM - 6/8 slow waltz (Burzum-style)", { 6, 8, 2, r8 }, {
+                { Crash, "X.. ... | ... ..." },
+                { Ride, ".xx xxx | xxx xxx" },
+                { Kick, "x.. ... | x.. ..x" },
+                { Snare, "... X.. | ... X.." } } },
+            { "War metal - Chaotic blast (Blasphemy-style)", { 4, 4, 2, r16 }, {
+                { Crash, "X.x. x.x. x.x. x.x. | X.x. x.x. x.x. x.x." },
+                { Kick, "x?x? x?x? x?x? x?x? | x?x? x?x? x?x? x?x?" },
+                { Snare, "x.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." } } },
+            { "War metal - Crash-wash d-beat", { 4, 4, 2, r16 }, {
+                { Crash, "X.x. x.x. x.x. x.x. | x.x. x.x. x.x. x.x." },
+                { Kick, "x.x. ..x. x.x. ..x. | x.x. ..x. x.x. ..x." },
+                { Snare, ".... X... .... X... | .... X... .... X..." } } },
+            { "Death - Double-kick groove bursts", { 4, 4, 2, r16 }, {
+                { Crash, "X... .... .... .... | .... .... .... ...." },
+                { China, ".... x... x... x... | x... x... x... x..." },
+                { Kick, "x.x. ..xx xx.. ..x. | x.x. ..xx xxxx xxxx" },
+                { Snare, ".... X... .... X... | .... X... .... X..." } } },
+            { "Death - Hyperblast (32nd gravity)", { 4, 4, 1, r32 }, {
+                { Crash, "X..............................." },
+                { Kick, "x.......x.......x.......x......." },
+                { Snare, "X6X6X6X6X6X6X6X6X6X6X6X6X6X6X6X6" } } },
+            { "Doom - Slow crush", { 4, 4, 2, r16 }, {
+                { Crash, "X... x... x... x... | x... x... x... x..." },
+                { Kick, "x... .... ..x. .... | x... .... x.x. ...." },
+                { Snare, ".... .... X... .... | .... .... X... ...." } } },
+            { "Doom - 12/8 funeral march", { 12, 8, 2, r8 }, {
+                { Crash, "X.. ... ... ... | ... ... ... ..." },
+                { Ride, "... x.. x.. x.. | x.. x.. x.. x.." },
+                { Kick, "x.. ... ... ... | x.. ... x.. ..." },
+                { Snare, "... ... X.. ... | ... ... X.. ..." } } },
         };
         return defs;
     }
@@ -299,6 +366,21 @@ namespace
             { "Sextuplet burst - Hoglan-style", { 2, 8, 1, r16t }, {
                 { Snare, "x.x.x." },
                 { Kick, ".x.x.X" } } },
+
+            // Subgenre fills.
+            { "Chaotic snare-kick burst (war metal)", { 2, 8, 1, r32 }, {
+                { Snare, "x?x?x?xX" },
+                { Kick, ".x?x.x?x" } } },
+            { "Floor-tom wash crescendo - half bar", { 4, 8, 1, r16 }, {
+                { Floor, "3456 789X" },
+                { Kick, "x.x. x.x." } } },
+            { "Slow tom fall (doom) - full bar", { 8, 8, 1, r8 }, {
+                { Snare, "xx.. ...." },
+                { Tom1, "..x. ...." },
+                { Tom2, "...x ...." },
+                { Tom3, ".... x..." },
+                { Floor, ".... .xxX" },
+                { Kick, "x... x..x" } } },
         };
         return defs;
     }
@@ -333,12 +415,18 @@ namespace
 
 juce::StringArray grooveCategoryOrder()
 {
-    return { "Blast beats", "Black metal", "Thrash, heavy & double kick", "Polymeter",
+    return { "Blast beats", "Black metal", "Second wave", "Atmospheric, DSBM & blackgaze", "War metal",
+             "Thrash, heavy & double kick", "Death metal", "Doom", "Polymeter",
              "Ternary - 4/4 triplets", "Ternary - 6/8 & 12/8", "3/4" };
 }
 
 juce::String grooveCategory (const juce::String& n)
 {
+    if (n.startsWith ("2nd wave"))                  return "Second wave";
+    if (n.startsWith ("Atmospheric - ") || n.startsWith ("DSBM")) return "Atmospheric, DSBM & blackgaze";
+    if (n.startsWith ("War metal"))                 return "War metal";
+    if (n.startsWith ("Death - "))                  return "Death metal";
+    if (n.startsWith ("Doom - "))                   return "Doom";
     if (n.startsWith ("Blast"))                     return "Blast beats";
     if (n.startsWith ("Polymeter"))                 return "Polymeter";
     if (n.startsWith ("6/8") || n.startsWith ("12/8")) return "Ternary - 6/8 & 12/8";

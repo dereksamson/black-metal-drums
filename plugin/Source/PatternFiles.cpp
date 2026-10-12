@@ -49,8 +49,10 @@ int suggestedTempo (const Pattern& p, bool isFill)
     if (n.contains ("Half-time atmospheric"))    return 90;
     if (n.contains ("Mid-tempo"))                return 130;
     if (n.startsWith ("12/8"))                   return 110;   // dotted quarter ~ 73
+    if (n.startsWith ("DSBM"))                   return 80;
 
     const auto category = grooveCategory (n);
+    if (category == "Second wave" || category == "War metal" || category == "Death metal") return 200;
     if (category == "Blast beats")               return 200;
     if (category == "Polymeter")                 return 120;
     if (category == "Ternary - 4/4 triplets")    return 140;

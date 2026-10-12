@@ -34,7 +34,7 @@ BlackMetalDrumsProcessor::BlackMetalDrumsProcessor()
     pSwing       = params.getRawParameterValue ("swing");
 
     // Every groove needs a trigger key below the drum range.
-    jassert (library.grooves.size() <= heldOrder.size());
+    jassert (library.grooves.size() <= heldOrder.size() && library.grooves.size() <= (size_t) fillKeyBase);
     jassert (fillKeyBase + (int) library.fills.size() <= 128);
     pendingOff.fill (-1);
 }
@@ -54,7 +54,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BlackMetalDrumsProcessor::cr
                                                         NormalisableRange<float> (50.0f, 150.0f, 1.0f), 100.0f,
                                                         AudioParameterFloatAttributes().withLabel ("%")));
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "trigger", 2 }, "Note trigger",
-                                                        StringArray { "Off", "Latch", "Hold" }, 0));
+                                                        StringArray { "Off", "Latch", "Hold", "Latch (ch 16)", "Hold (ch 16)" }, 0));
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "cymbal", 3 }, "Cymbal",
                                                         cymbalChoiceNames(), 0));
     layout.add (std::make_unique<AudioParameterBool>   (ParameterID { "crashAfterFill", 3 }, "Crash after fill", true));
@@ -104,7 +104,19 @@ juce::StringArray BlackMetalDrumsProcessor::cymbalChoiceNames()
 
 BlackMetalDrumsProcessor::TriggerMode BlackMetalDrumsProcessor::triggerMode() const
 {
-    return (TriggerMode) juce::jlimit (0, 2, (int) pTrigger->load());
+    const int choice = juce::jlimit (0, 4, (int) pTrigger->load());
+    return choice == 0 ? TriggerOff : (choice % 2 == 1 ? TriggerLatch : TriggerHold);
+}
+
+bool BlackMetalDrumsProcessor::triggersOnChannel16() const
+{
+    return (int) pTrigger->load() >= 3;
+}
+
+int BlackMetalDrumsProcessor::numGrooveKeys() const
+{
+    const int n = (int) library.grooves.size();
+    return triggersOnChannel16() ? n : juce::jmin (n, (int) maxGrooveKeys);
 }
 
 bm::Settings BlackMetalDrumsProcessor::playbackSettings() const
@@ -205,9 +217,8 @@ void BlackMetalDrumsProcessor::handleTrigger (bool noteOn, int note, double ppq,
                                               const juce::AudioPlayHead::PositionInfo* pos)
 {
     const int index = note - grooveKeyBase;
-    const int numGrooves = (int) library.grooves.size();
 
-    if (juce::isPositiveAndBelow (index, numGrooves))
+    if (juce::isPositiveAndBelow (index, numGrooveKeys()))
     {
         if (! noteOn)
         {
@@ -279,10 +290,12 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
     // Split incoming MIDI: trigger keys are consumed, everything else passes through.
     const auto mode = triggerMode();
-    if (mode != lastTriggerMode)
+    const bool channel16 = triggersOnChannel16();
+    const int grooveKeys = numGrooveKeys();
+    if (const int choice = (int) pTrigger->load(); choice != lastTriggerChoice)
     {
         resetTriggers();
-        lastTriggerMode = mode;
+        lastTriggerChoice = choice;
     }
 
     struct Trigger { int sample; bool on; int note; };
@@ -295,8 +308,8 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         const auto msg = meta.getMessage();
         const bool isNote = msg.isNoteOn() || msg.isNoteOff();
         const int note = msg.getNoteNumber();
-        const bool isTriggerKey = isNote && mode != TriggerOff
-                                  && (juce::isPositiveAndBelow (note - grooveKeyBase, (int) library.grooves.size())
+        const bool isTriggerKey = isNote && mode != TriggerOff && (! channel16 || msg.getChannel() == 16)
+                                  && (juce::isPositiveAndBelow (note - grooveKeyBase, grooveKeys)
                                       || juce::isPositiveAndBelow (note - fillKeyBase, (int) library.fills.size()));
         if (isTriggerKey)
         {
