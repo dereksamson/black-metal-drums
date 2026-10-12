@@ -39,8 +39,9 @@ public:
     enum TriggerMode { TriggerOff, TriggerLatch, TriggerHold };
     static constexpr int fillEveryBars[] = { 0, 1, 2, 4, 8 };
     // Trigger keys sit outside the General MIDI drum range (35-81), so drum notes still pass through:
-    // grooves from C-2 (note 0) up to A#0, fills from C6 (note 96) up.
-    static constexpr int grooveKeyBase = 0, maxGrooveKeys = 35, fillKeyBase = 96;
+    // grooves from C-2 (note 0) up to A#0 (the first 35 grooves), fills from C6 (note 96) up.
+    // In the channel-16 modes only channel 16 triggers, and every groove has a key (notes 0-95).
+    static constexpr int grooveKeyBase = 0, maxGrooveKeys = 35, maxGrooves = 96, fillKeyBase = 96;
 
     // Settings from the parameters alone (what the controls say).
     bm::Settings currentSettings() const;
@@ -50,6 +51,8 @@ public:
     static juce::StringArray cymbalChoiceNames();
 
     TriggerMode triggerMode() const;
+    bool triggersOnChannel16() const;
+    int numGrooveKeys() const;   // grooves reachable by trigger keys in the current mode
 
     // Renders the selected groove + fills (or the whole song, in song mode) into a temp .mid file.
     juce::File exportMidiFile() const;
@@ -124,9 +127,9 @@ private:
     juce::MidiBuffer passThrough;
 
     // Note-trigger state (audio thread only).
-    int lastTriggerMode = TriggerOff;
+    int lastTriggerChoice = 0;
     int latchedGroove = -1;
-    std::array<int, maxGrooveKeys> heldOrder {};      // per groove key: 0 = up, else press order
+    std::array<int, maxGrooves> heldOrder {};      // per groove key: 0 = up, else press order
     int pressCounter = 0;
     double origin = 0.0;
     long long forcedFillBar = bm::noBar;

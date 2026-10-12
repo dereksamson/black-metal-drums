@@ -65,8 +65,11 @@ isn't selected.
 
 ## 4. Grooves and fills
 
-- **Groove**: the beat that loops. The menu is grouped by style: blast beats, black metal,
-  thrash and heavy, polymeter, ternary (triplets, 6/8 and 12/8), and 3/4.
+- **Groove**: the beat that loops. The menu is grouped by style:
+  - blast beats, black metal, second wave
+  - atmospheric, DSBM and blackgaze
+  - war metal, thrash and heavy, death metal, doom
+  - polymeter, ternary (triplets, 6/8 and 12/8), and 3/4
 - **Fill**: grouped by length, from 1/8 of a bar to a full bar.
 - **Fill every**: plays the fill at the end of every 1, 2, 4 or 8 bars, replacing the end of
   that bar. **Off** means no fills.
@@ -200,8 +203,18 @@ the groove keeps its own phase.
 
 ### b. Note triggers
 
-Set **Note trigger** to **Latch** or **Hold**, then draw notes on the track:
-- **Groove keys** start at **C-2** (note 0), one key per groove in menu order. A groove key
+Set **Note trigger** to one of four modes:
+
+| Mode | Which notes trigger | Grooves with a key |
+|---|---|---|
+| **Latch** / **Hold** | Notes on any channel, below and above the drum range | The first 35 |
+| **Latch (ch 16)** / **Hold (ch 16)** | Only notes on MIDI channel 16 | All of them |
+
+In the channel-16 modes, set the trigger notes' channel to 16 in Logic's Piano Roll. Notes on
+other channels, including drum notes you draw, pass straight through to the drum plugin.
+
+Then draw notes on the track:
+- **Groove keys** start at **C-2** (note 0), one key per groove in the order of the key table. A groove key
   selects that groove and restarts it on the bar line. A key up to a 16th early still counts for
   that bar.
 - **Fill keys** start at **C6** (note 96). A fill key plays that fill at the end of the bar the
@@ -209,8 +222,8 @@ Set **Note trigger** to **Latch** or **Hold**, then draw notes on the track:
 - **Latch**: a groove keeps playing until the next groove key.
 - **Hold**: a groove plays only while its key is held. Draw one long note per section, and the
   gaps are silent.
-- Trigger keys sit outside the drum range, so drum notes you draw alongside them still reach
-  your drum plugin.
+- In the default modes, trigger keys sit outside the drum range, so drum notes you draw
+  alongside them still reach your drum plugin.
 
 See the [key table](#10-pattern-library-and-trigger-keys).
 
@@ -236,7 +249,7 @@ Open the **Song** tab:
   the selected groove with its fills, or the whole song in song mode, with time signature
   changes. You can then edit the region like any other.
 - **Save .mid...** writes the same thing to a file.
-- **Export all...** writes all 35 grooves and 23 fills as separate files into a folder you
+- **Export all...** writes all 49 grooves and 26 fills as separate files into a folder you
   choose. The export uses your kit map and humanize settings, and each file name includes a
   suggested tempo.
 - The repository's [midi/](../midi/) folder has every pattern as a General MIDI file, ready
@@ -247,69 +260,86 @@ Open the **Song** tab:
 The "-style" patterns are in the spirit of a band or drummer, not transcriptions. Key names
 use Logic's convention, where middle C (note 60) is C3.
 
-| Key | Groove | Suggested tempo |
-|---|---|---|
-| C-2 (0) | Blast - Traditional (ride) | 200 |
-| C#-2 (1) | Blast - Traditional (crash) | 200 |
-| D-2 (2) | Blast - Traditional (hi-hat) | 200 |
-| D#-2 (3) | Blast - Hammer (crash) | 200 |
-| E-2 (4) | Blast - Hammer (china) | 200 |
-| F-2 (5) | Blast - Bomb | 200 |
-| F#-2 (6) | Skank beat | 180 |
-| G-2 (7) | Double kick - 16ths | 170 |
-| G#-2 (8) | Double kick - Gallop | 170 |
-| A-2 (9) | Mid-tempo march | 130 |
-| A#-2 (10) | Half-time atmospheric | 90 |
-| B-2 (11) | 68 - Tremolo groove | 180 |
-| C-1 (12) | 68 - Blast | 180 |
-| C#-1 (13) | 68 - Double kick | 180 |
-| D-1 (14) | 34 - Hammer blast | 180 |
-| D#-1 (15) | 34 - Epic (Bathory-style) | 180 |
-| E-1 (16) | Blast - Gravity (approx.) | 200 |
-| F-1 (17) | Blast - Ride bell | 200 |
-| F#-1 (18) | Blast - Bomb (china) | 200 |
-| G-1 (19) | Half-time double kick | 180 |
-| G#-1 (20) | D-beat | 180 |
-| A-1 (21) | Mid-tempo - Variable kicks | 130 |
-| A#-1 (22) | 128 - Atmospheric | 110 |
-| B-1 (23) | Thrash beat - Slayer-style | 170 |
-| C0 (24) | Gallop - Maiden-style | 170 |
-| C#0 (25) | Tribal toms - Sepultura-style | 170 |
-| D0 (26) | Polymeter - kicks in 3s (Meshuggah-style) | 120 |
-| D#0 (27) | Polymeter - 516 over 44 | 120 |
-| E0 (28) | Shuffle double bass - Hot for Teacher-style | 140 |
-| F0 (29) | Doom shuffle - Sabbath-style | 70 |
-| F#0 (30) | Triplet breakdown | 140 |
-| G0 (31) | Sextuplet double kick - Hoglan-style | 140 |
-| G#0 (32) | 128 - Tom shuffle (Running Free-style) | 110 |
-| A0 (33) | 128 - Half-time groove shuffle (Pantera-style) | 110 |
-| A#0 (34) | 128 - Triplet double kick (Mgla-style) | 110 |
+| Key | Groove | Suggested tempo | Trigger modes |
+|---|---|---|---|
+| C-2 (0) | Blast - Traditional (ride) | 200 | any channel |
+| C#-2 (1) | Blast - Traditional (crash) | 200 | any channel |
+| D-2 (2) | Blast - Traditional (hi-hat) | 200 | any channel |
+| D#-2 (3) | Blast - Hammer (crash) | 200 | any channel |
+| E-2 (4) | Blast - Hammer (china) | 200 | any channel |
+| F-2 (5) | Blast - Bomb | 200 | any channel |
+| F#-2 (6) | Skank beat | 180 | any channel |
+| G-2 (7) | Double kick - 16ths | 170 | any channel |
+| G#-2 (8) | Double kick - Gallop | 170 | any channel |
+| A-2 (9) | Mid-tempo march | 130 | any channel |
+| A#-2 (10) | Half-time atmospheric | 90 | any channel |
+| B-2 (11) | 68 - Tremolo groove | 180 | any channel |
+| C-1 (12) | 68 - Blast | 180 | any channel |
+| C#-1 (13) | 68 - Double kick | 180 | any channel |
+| D-1 (14) | 34 - Hammer blast | 180 | any channel |
+| D#-1 (15) | 34 - Epic (Bathory-style) | 180 | any channel |
+| E-1 (16) | Blast - Gravity (approx.) | 200 | any channel |
+| F-1 (17) | Blast - Ride bell | 200 | any channel |
+| F#-1 (18) | Blast - Bomb (china) | 200 | any channel |
+| G-1 (19) | Half-time double kick | 180 | any channel |
+| G#-1 (20) | D-beat | 180 | any channel |
+| A-1 (21) | Mid-tempo - Variable kicks | 130 | any channel |
+| A#-1 (22) | 128 - Atmospheric | 110 | any channel |
+| B-1 (23) | Thrash beat - Slayer-style | 170 | any channel |
+| C0 (24) | Gallop - Maiden-style | 170 | any channel |
+| C#0 (25) | Tribal toms - Sepultura-style | 170 | any channel |
+| D0 (26) | Polymeter - kicks in 3s (Meshuggah-style) | 120 | any channel |
+| D#0 (27) | Polymeter - 516 over 44 | 120 | any channel |
+| E0 (28) | Shuffle double bass - Hot for Teacher-style | 140 | any channel |
+| F0 (29) | Doom shuffle - Sabbath-style | 70 | any channel |
+| F#0 (30) | Triplet breakdown | 140 | any channel |
+| G0 (31) | Sextuplet double kick - Hoglan-style | 140 | any channel |
+| G#0 (32) | 128 - Tom shuffle (Running Free-style) | 110 | any channel |
+| A0 (33) | 128 - Half-time groove shuffle (Pantera-style) | 110 | any channel |
+| A#0 (34) | 128 - Triplet double kick (Mgla-style) | 110 | any channel |
+| B0 (35) | 2nd wave - Fast polka (Darkthrone-style) | 200 | ch 16 only |
+| C1 (36) | 2nd wave - Blast crash on 1 and 3 (Emperor-style) | 200 | ch 16 only |
+| C#1 (37) | 2nd wave - Bomb with ride bell (Hellhammer-style) | 200 | ch 16 only |
+| D1 (38) | Atmospheric - Washed blast (ride 16ths) | 180 | ch 16 only |
+| D#1 (39) | Atmospheric - Tom-wash blast (blackgaze) | 180 | ch 16 only |
+| E1 (40) | Atmospheric - Driving post-black 8ths | 180 | ch 16 only |
+| F1 (41) | DSBM - Half-time dirge | 80 | ch 16 only |
+| F#1 (42) | DSBM - 68 slow waltz (Burzum-style) | 80 | ch 16 only |
+| G1 (43) | War metal - Chaotic blast (Blasphemy-style) | 200 | ch 16 only |
+| G#1 (44) | War metal - Crash-wash d-beat | 200 | ch 16 only |
+| A1 (45) | Death - Double-kick groove bursts | 200 | ch 16 only |
+| A#1 (46) | Death - Hyperblast (32nd gravity) | 200 | ch 16 only |
+| B1 (47) | Doom - Slow crush | 70 | ch 16 only |
+| C2 (48) | Doom - 128 funeral march | 70 | ch 16 only |
 
-| Key | Fill | Suggested tempo |
-|---|---|---|
-| C6 (96) | Snare 16ths | 180 |
-| C#6 (97) | Snare 32nds crescendo | 180 |
-| D6 (98) | Snare + kick unison | 180 |
-| D#6 (99) | Toms 16ths | 180 |
-| E6 (100) | Toms 32nds | 180 |
-| F6 (101) | Snare to floor | 180 |
-| F#6 (102) | Triplet toms | 180 |
-| G6 (103) | Sextuplet (hand-hand-foot) | 180 |
-| G#6 (104) | Unison stabs | 180 |
-| A6 (105) | Toms 38 (68 beat) | 180 |
-| A#6 (106) | Snare roll half bar | 180 |
-| B6 (107) | Tom cascade full bar | 180 |
-| C7 (108) | Gravity roll | 180 |
-| C#7 (109) | Blast burst 32nds | 180 |
-| D7 (110) | Stabs half bar | 180 |
-| D#7 (111) | Hand-hand-foot triplets - full bar | 180 |
-| E7 (112) | Triplet tom run - half bar | 180 |
-| F7 (113) | Linear fill - half bar | 180 |
-| F#7 (114) | 32nd roll around the kit - full bar | 180 |
-| G7 (115) | Groups of five - full bar | 180 |
-| G#7 (116) | Triplet unison stabs - half bar | 180 |
-| A7 (117) | Triplet toms 38 (128 beat) | 180 |
-| A#7 (118) | Sextuplet burst - Hoglan-style | 180 |
+| Key | Fill | Suggested tempo | Trigger modes |
+|---|---|---|---|
+| C6 (96) | Snare 16ths | 180 | any channel |
+| C#6 (97) | Snare 32nds crescendo | 180 | any channel |
+| D6 (98) | Snare + kick unison | 180 | any channel |
+| D#6 (99) | Toms 16ths | 180 | any channel |
+| E6 (100) | Toms 32nds | 180 | any channel |
+| F6 (101) | Snare to floor | 180 | any channel |
+| F#6 (102) | Triplet toms | 180 | any channel |
+| G6 (103) | Sextuplet (hand-hand-foot) | 180 | any channel |
+| G#6 (104) | Unison stabs | 180 | any channel |
+| A6 (105) | Toms 38 (68 beat) | 180 | any channel |
+| A#6 (106) | Snare roll half bar | 180 | any channel |
+| B6 (107) | Tom cascade full bar | 180 | any channel |
+| C7 (108) | Gravity roll | 180 | any channel |
+| C#7 (109) | Blast burst 32nds | 180 | any channel |
+| D7 (110) | Stabs half bar | 180 | any channel |
+| D#7 (111) | Hand-hand-foot triplets - full bar | 180 | any channel |
+| E7 (112) | Triplet tom run - half bar | 180 | any channel |
+| F7 (113) | Linear fill - half bar | 180 | any channel |
+| F#7 (114) | 32nd roll around the kit - full bar | 180 | any channel |
+| G7 (115) | Groups of five - full bar | 180 | any channel |
+| G#7 (116) | Triplet unison stabs - half bar | 180 | any channel |
+| A7 (117) | Triplet toms 38 (128 beat) | 180 | any channel |
+| A#7 (118) | Sextuplet burst - Hoglan-style | 180 | any channel |
+| B7 (119) | Chaotic snare-kick burst (war metal) | 180 | any channel |
+| C8 (120) | Floor-tom wash crescendo - half bar | 180 | any channel |
+| C#8 (121) | Slow tom fall (doom) - full bar | 180 | any channel |
 
 ## 11. Troubleshooting
 
@@ -321,6 +351,6 @@ use Logic's convention, where middle C (note 60) is C3.
 | Fills land in the wrong place with note triggers | Start playback at the section's first bar: the groove restarts at the bar where playback starts |
 | Bars don't line up | The groove's meter differs from Logic's time signature (the status line says so) |
 | Drag MIDI doesn't create a region | Use **Save .mid...** and import the file |
-| A drawn note is swallowed | With note triggers on, notes from C-2 to A#0 and from C6 up are trigger keys |
+| A drawn note is swallowed | With note triggers on, notes from C-2 to A#0 and from C6 up are trigger keys. Use a "ch 16" mode to keep them apart |
 
 To report a problem or suggest a pattern, use [GitHub issues](https://github.com/dereksamson/black-metal-drums/issues).

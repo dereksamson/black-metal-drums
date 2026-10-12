@@ -503,7 +503,9 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     kitMapLabel.setColour (juce::Label::textColourId, colours::text);
     addAndMakeVisible (kitMapLabel);
 
-    triggerBox.addItemList ({ "Off", "Latch", "Hold" }, 1);
+    triggerBox.addItemList ({ "Off", "Latch", "Hold", "Latch (ch 16)", "Hold (ch 16)" }, 1);
+    triggerBox.setTooltip ("Latch/Hold: keys below and above the drum range (first 35 grooves). "
+                           "Ch 16: only notes on MIDI channel 16 trigger, and every groove has a key");
     addAndMakeVisible (triggerBox);
     setupCaption (triggerCaption, "NOTE TRIGGER");
     triggerCaption.setJustificationType (juce::Justification::centredRight);
@@ -873,6 +875,7 @@ juce::String BlackMetalDrumsEditor::quickReference() const
     line ("ARRANGING");
     line ("  Automation: Groove, Fill and Fill every are automatable.");
     line ("  Note trigger Latch / Hold: draw groove keys (from C-2) and fill keys (from C6).");
+    line ("    The 'ch 16' modes listen to MIDI channel 16 only and give every groove a key.");
     line ("    Latch: until the next groove key.  Hold: only while held (gaps are silent).");
     line ("  Song tab: sections of groove x bars with fills; turn on Song mode, play from bar 1.");
     line ({});
@@ -885,9 +888,10 @@ juce::String BlackMetalDrumsEditor::quickReference() const
     line ({});
 
     auto keyName = [] (int note) { return juce::MidiMessage::getMidiNoteName (note, true, true, 3).paddedRight (' ', 6); };
-    line ("GROOVE KEYS (note trigger)");
+    line ("GROOVE KEYS (note trigger; grooves after the first 35 need a 'ch 16' mode)");
     for (size_t i = 0; i < lib.grooves.size(); ++i)
-        line ("  " + keyName (BlackMetalDrumsProcessor::grooveKeyBase + (int) i) + lib.grooves[i]->name);
+        line ("  " + keyName (BlackMetalDrumsProcessor::grooveKeyBase + (int) i) + lib.grooves[i]->name
+              + ((int) i >= BlackMetalDrumsProcessor::maxGrooveKeys ? "   (ch 16)" : ""));
     line ({});
     line ("FILL KEYS (note trigger)");
     for (size_t i = 0; i < lib.fills.size(); ++i)
@@ -1141,13 +1145,14 @@ void BlackMetalDrumsEditor::updateStatus()
 
     const auto mode = bmProcessor.triggerMode();
     const int base = BlackMetalDrumsProcessor::grooveKeyBase;
-    const int numGrooves = (int) bmProcessor.library.grooves.size();
+    const int numGrooves = bmProcessor.numGrooveKeys();
     const int numFills = (int) bmProcessor.library.fills.size();
     const int fillBase = BlackMetalDrumsProcessor::fillKeyBase;
 
     triggerInfo.setText (mode == BlackMetalDrumsProcessor::TriggerOff
                              ? juce::String ("Groove and fill follow the menus")
-                             : "Keys: grooves " + noteName (base) + "-" + noteName (base + numGrooves - 1) + ", fills "
+                             : juce::String (bmProcessor.triggersOnChannel16() ? "Ch 16: " : "Keys: ")
+                                   + "grooves " + noteName (base) + "-" + noteName (base + numGrooves - 1) + ", fills "
                                    + noteName (fillBase) + "-" + noteName (fillBase + numFills - 1),
                          juce::dontSendNotification);
 

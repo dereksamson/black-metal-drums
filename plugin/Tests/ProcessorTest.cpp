@@ -34,6 +34,7 @@ namespace
         BlackMetalDrumsProcessor proc;
         FakeHost host;
         juce::AudioBuffer<float> buffer { 0, block };
+        int inputChannel = 1;
 
         Rig()
         {
@@ -59,7 +60,8 @@ namespace
                     if (t >= host.ppq && t < host.ppq + block * ppqPerSample)
                     {
                         const int s = (int) ((t - host.ppq) / ppqPerSample);
-                        midi.addEvent (on ? juce::MidiMessage::noteOn (1, note, (juce::uint8) 100) : juce::MidiMessage::noteOff (1, note), s);
+                        midi.addEvent (on ? juce::MidiMessage::noteOn (inputChannel, note, (juce::uint8) 100)
+                                          : juce::MidiMessage::noteOff (inputChannel, note), s);
                     }
                 proc.processBlock (buffer, midi);
                 for (const auto m : midi)
@@ -248,6 +250,29 @@ int main()
         int kicks = 0;
         for (auto& h : hits) kicks += h.second == 36 && h.first > 0.9 && h.first < 15.9;
         check (kicks == 60 && hasNear (hits, 2.0 + 1.0 / 3.0, 36), "swing: no lost or doubled hits");
+    }
+
+    // Grooves past the first 35: not reachable in the default key mode (the note is a drum note and
+    // passes through), reachable on channel 16 in the "ch 16" modes.
+    {
+        Rig r;
+        r.setParam ("fillEvery", 0);
+        r.setParam ("trigger", 1);    // Latch, default keys
+        auto hits = r.play (0.0, 8.0, { { 3.9, 46, true } });
+        check (hasNear (hits, 3.9, 46) && ! hasNear (hits, 4.125, 38), "default keys: note 46 is a drum note");
+
+        Rig c;
+        c.setParam ("fillEvery", 0);
+        c.setParam ("trigger", 3);    // Latch (ch 16)
+        c.inputChannel = 16;
+        hits = c.play (0.0, 8.0, { { 3.9, 46, true } });   // groove 46: hyperblast, snare 32nds
+        check (! hasNear (hits, 3.9, 46) && hasNear (hits, 4.125, 38), "ch 16: note 46 triggers groove 46");
+
+        Rig o;
+        o.setParam ("fillEvery", 0);
+        o.setParam ("trigger", 3);
+        hits = o.play (0.0, 8.0, { { 3.9, 3, true } });    // channel 1 in a ch 16 mode: passes through
+        check (hasNear (hits, 3.9, 3) && ! hasNear (hits, 4.0, 38), "ch 16: other channels pass through");
     }
 
     // Timing humanize across block boundaries: every kick still plays exactly once.

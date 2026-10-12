@@ -63,8 +63,11 @@ In `Patterns.cpp`, each lane is a string with one character per step:
 | `1`–`9` | velocity level |
 | `?` | normal hit with a 50 % chance |
 
-Spaces and `|` are ignored. Groove keys follow menu order, and there are at most 35 grooves,
-so their keys stay below the General MIDI drum range. `factoryPatternErrors()`, which the
+Spaces and `|` are ignored. New patterns go at the end of their list, so saved projects keep
+their selections. Groove keys follow list order:
+- In the default trigger modes, only the first 35 grooves have keys, so the keys stay below the
+  General MIDI drum range.
+- The "ch 16" modes give every groove a key, up to 96 grooves. `factoryPatternErrors()`, which the
 tests check, catches grids of the wrong length.
 
 ### Threading

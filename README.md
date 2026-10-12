@@ -5,9 +5,9 @@
 Black metal (and wider metal) drum patterns, as MIDI files and as a Logic Pro plugin.
 
 - **[plugin/](plugin/)** — *Black Metal Drums*, an Audio Unit MIDI FX for Logic Pro. It plays
-  35 grooves and 23 fills in time with Logic's transport. Patterns can be edited on a step grid,
+  49 grooves and 26 fills in time with Logic's transport. Patterns can be edited on a step grid,
   arranged with trigger notes, and dragged out as MIDI regions. It includes:
-  - blast beats, plus thrash and polymeter grooves
+  - blast beats, second wave, atmospheric/DSBM, war metal, thrash, death, doom and polymeter grooves
   - ternary grooves: triplet 4/4, 6/8 and 12/8
   - kit maps, so it works with any drum plugin
   - a per-step chance of playing, cymbal swap, and velocity and timing humanize
@@ -15,7 +15,7 @@ Black metal (and wider metal) drum patterns, as MIDI files and as a Logic Pro pl
   - a song mode, presets, undo/redo and copy/paste
 
   **[Read the user guide](docs/USER_GUIDE.md).** Developers should see [plugin/README.md](plugin/README.md).
-- **[midi/](midi/)** — every factory groove (35) and fill (23) as a standalone General MIDI file,
+- **[midi/](midi/)** — every factory groove (49) and fill (26) as a standalone General MIDI file,
   ready to drag into any DAW. Each file name includes a suggested tempo. The files come from the
   plugin's own pattern engine; run `plugin/build/ExportPatterns_artefacts/Release/ExportPatterns midi`
   after a build to regenerate them.
