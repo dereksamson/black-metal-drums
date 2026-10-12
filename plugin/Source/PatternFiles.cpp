@@ -19,7 +19,7 @@ bool writePatternMidi (const Settings& s, const Pattern& p, bool isFill, double 
 
     renderPatternAlone (s, p, isFill, [&] (const Hit& hit)
     {
-        const double tick = juce::jmax (0.0, (hit.ppq + hit.offsetMs * bpm / 60'000.0) * ppq);
+        const double tick = juce::jmax (0.0, (hit.ppq + hit.offsetPpq + hit.offsetMs * bpm / 60'000.0) * ppq);
         seq.addEvent (juce::MidiMessage::noteOn (drumChannel, hit.note, (juce::uint8) hit.velocity), tick);
         seq.addEvent (juce::MidiMessage::noteOff (drumChannel, hit.note), tick + ppq / 16.0);
     });

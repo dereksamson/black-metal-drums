@@ -54,6 +54,11 @@ public:
     // Renders the selected groove + fills (or the whole song, in song mode) into a temp .mid file.
     juce::File exportMidiFile() const;
 
+    // Half-time plays patterns at half speed, double-time at twice the speed:
+    // pattern time = host PPQ * timeScale().
+    double timeScale() const;
+    double patternPlayhead() const      { return playheadPpq.load() * timeScale(); }   // < 0 when stopped
+
     bool songMode() const;
     bool songLoops() const;
     // Song section at the playhead (or at the start when stopped); -1 if none.
@@ -107,6 +112,8 @@ private:
     std::atomic<float>* pTiming = nullptr;
     std::atomic<float>* pSongMode = nullptr;
     std::atomic<float>* pSongLoop = nullptr;
+    std::atomic<float>* pTimeFeel = nullptr;
+    std::atomic<float>* pSwing = nullptr;
 
     double sampleRate = 44100.0;
     std::array<int, 128> pendingOff {};   // samples until note-off, -1 = none

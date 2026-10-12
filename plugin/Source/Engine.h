@@ -48,6 +48,7 @@ struct Settings
     float chanceAmount = 1.0f;     // 0 = ignore per-step chances, 1 = apply them fully
     int kickBalance = 0;           // velocity taken off the second foot in kick runs
     float timingMs = 0.0f;         // +/- timing humanize
+    float swing = 0.0f;            // 0 = straight, 1 = off-steps moved to the triplet position
 
     double origin = 0.0;        // PPQ where the groove's bar 1 starts
     bool grooveMuted = false;   // hold mode with no key down: only forced fills play
@@ -143,7 +144,24 @@ struct Hit
     int note;
     int velocity;
     double offsetMs;     // timing humanize, applied by the caller (depends on tempo)
+    double offsetPpq;    // swing, in pattern time (always >= 0)
 };
+
+// Swing delays every second step of straight grids (1/8, 1/16, 1/32). Triplet grids and
+// compound meters (6/8, 9/8, 12/8) are already ternary and stay as they are.
+// At full swing, the off-step of each pair lands on the second triplet position.
+inline double swingOffset (const Settings& s, const Layout& l, int step) noexcept
+{
+    if (s.swing <= 0.0f)
+        return 0.0;
+    const bool straight = l.res == Resolution::Eighth || l.res == Resolution::Sixteenth || l.res == Resolution::ThirtySecond;
+    const bool compound = l.den == 8 && l.num % 3 == 0;
+    if (! straight || compound || (step % l.stepsPerBar()) % 2 == 0)
+        return 0.0;
+    return (double) s.swing * l.stepLength() / 3.0;
+}
+
+constexpr double maxSwingOffset = 0.5 / 3.0;   // 1/8 grid at full swing
 
 inline int stepRandom (uint64_t key, int range) noexcept   // deterministic 0 .. range-1
 {
@@ -157,6 +175,7 @@ void emitStep (const Settings& s, const Pattern& p, bool isFill, int step, doubl
                uint64_t key, bool addCrash, Emit& emit)
 {
     const int swapLane = cymbalSwapLane (s.cymbal);
+    const double swing = swingOffset (s, p.layout(), step);
     auto random = stepRandom;
 
     const double offBeat = std::fmod (posInBar, beat);
@@ -195,7 +214,7 @@ void emitStep (const Settings& s, const Pattern& p, bool isFill, int step, doubl
         if (! juce::isPositiveAndBelow (note, 128) || used[(size_t) note])
             return;
         used[(size_t) note] = true;
-        emit (Hit { t, note, juce::jlimit (1, 127, juce::roundToInt (vel)), offsetMs });
+        emit (Hit { t, note, juce::jlimit (1, 127, juce::roundToInt (vel)), offsetMs, swing });
     };
 
     if (addCrash)

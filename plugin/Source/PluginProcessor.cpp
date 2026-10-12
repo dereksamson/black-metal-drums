@@ -30,6 +30,8 @@ BlackMetalDrumsProcessor::BlackMetalDrumsProcessor()
     pTiming      = params.getRawParameterValue ("timing");
     pSongMode    = params.getRawParameterValue ("songMode");
     pSongLoop    = params.getRawParameterValue ("songLoop");
+    pTimeFeel    = params.getRawParameterValue ("timeFeel");
+    pSwing       = params.getRawParameterValue ("swing");
 
     // Every groove needs a trigger key below the drum range.
     jassert (library.grooves.size() <= heldOrder.size());
@@ -65,6 +67,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout BlackMetalDrumsProcessor::cr
                                                         AudioParameterFloatAttributes().withLabel ("ms")));
     layout.add (std::make_unique<AudioParameterBool>   (ParameterID { "songMode", 4 }, "Song mode", false));
     layout.add (std::make_unique<AudioParameterBool>   (ParameterID { "songLoop", 4 }, "Loop song", false));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { "timeFeel", 5 }, "Time feel",
+                                                        StringArray { "Normal", "Half-time", "Double-time" }, 0));
+    layout.add (std::make_unique<AudioParameterFloat>  (ParameterID { "swing", 5 }, "Swing",
+                                                        NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
+                                                        AudioParameterFloatAttributes().withLabel ("%")));
     return layout;
 }
 
@@ -86,6 +93,7 @@ bm::Settings BlackMetalDrumsProcessor::currentSettings() const
     s.chanceAmount   = pChance->load() / 100.0f;
     s.kickBalance    = (int) pKickBalance->load();
     s.timingMs       = pTiming->load();
+    s.swing          = pSwing->load() / 100.0f;
     return s;
 }
 
@@ -126,10 +134,20 @@ bm::Settings BlackMetalDrumsProcessor::playbackSettings() const
             s.grooveMuted = true;
     }
 
-    s.origin = origin;
+    s.origin = origin * timeScale();   // origin is kept in host PPQ
     s.forcedFillBar = forcedFillBar;
     s.forcedFill = forcedFill;
     return s;
+}
+
+double BlackMetalDrumsProcessor::timeScale() const
+{
+    switch ((int) pTimeFeel->load())
+    {
+        case 1:  return 0.5;
+        case 2:  return 2.0;
+        default: return 1.0;
+    }
 }
 
 bool BlackMetalDrumsProcessor::songMode() const   { return pSongMode->load() > 0.5f; }
@@ -138,7 +156,7 @@ bool BlackMetalDrumsProcessor::songLoops() const  { return pSongLoop->load() > 0
 int BlackMetalDrumsProcessor::currentSection() const
 {
     double offset = 0.0;
-    return bm::sectionAt (bm::placeSections (library, song), juce::jmax (0.0, playheadPpq.load()), songLoops(), offset);
+    return bm::sectionAt (bm::placeSections (library, song), juce::jmax (0.0, patternPlayhead()), songLoops(), offset);
 }
 
 bm::Settings BlackMetalDrumsProcessor::displaySettings() const
@@ -148,7 +166,7 @@ bm::Settings BlackMetalDrumsProcessor::displaySettings() const
     {
         const auto placed = bm::placeSections (library, song);
         double offset = 0.0;
-        const int i = bm::sectionAt (placed, juce::jmax (0.0, playheadPpq.load()), songLoops(), offset);
+        const int i = bm::sectionAt (placed, juce::jmax (0.0, patternPlayhead()), songLoops(), offset);
         return i >= 0 ? bm::sectionSettings (library, s, placed, i, offset) : s;
     }
     if (triggerMode() == TriggerOff || uiGroove.load() < 0)
@@ -225,7 +243,7 @@ void BlackMetalDrumsProcessor::handleTrigger (bool noteOn, int note, double ppq,
     {
         const auto s = playbackSettings();
         forcedFill = fillIndex;
-        forcedFillBar = bm::barAt (s, library.grooves[(size_t) s.groove]->layout(), ppq + 1.0e-6);
+        forcedFillBar = bm::barAt (s, library.grooves[(size_t) s.groove]->layout(), ppq * timeScale() + 1.0e-6);
     }
 }
 
@@ -355,11 +373,14 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             s.fillEvery = 1;
             s.randomFill = false;
         }
+        // Rendering happens in pattern time (scaled for half/double-time); hits come back to host time.
+        const double scale = timeScale();
         const double ppqPerMs = bpm / 60'000.0;
-        const double reach = s.timingMs * ppqPerMs;
+        const double reach = s.timingMs * ppqPerMs * scale + (s.swing > 0.0f ? bm::maxSwingOffset : 0.0);
+        const double patternFrom = from * scale, patternTo = to * scale;
         auto onHit = [&] (const bm::Hit& hit)
         {
-            const double t = hit.ppq + hit.offsetMs * ppqPerMs;
+            const double t = (hit.ppq + hit.offsetPpq) / scale + hit.offsetMs * ppqPerMs;
             if (t < from || t >= to)
                 return;
             const int sample = juce::jlimit (0, numSamples - 1, (int) ((t - start) / ppqPerSample));
@@ -372,9 +393,9 @@ void BlackMetalDrumsProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         // Song mode plays the arrangement (note triggers don't apply); otherwise the selected groove.
         if (songMode())
             bm::renderSong (library, currentSettings(), bm::placeSections (library, song), songLoops(),
-                            from - reach, to + reach, onHit);
+                            patternFrom - reach, patternTo + reach, onHit);
         else
-            bm::renderHits (library, s, from - reach, to + reach, onHit);
+            bm::renderHits (library, s, patternFrom - reach, patternTo + reach, onHit);
     };
 
     // Trigger keys take effect at their exact position inside the block.
@@ -418,6 +439,7 @@ juce::File BlackMetalDrumsProcessor::exportMidiFile() const
     const auto gl = groove.layout();
     const double bpm = hostBpm.load() > 0.0 ? hostBpm.load() : 180.0;
     const bool exportSong = songMode() && song.size() > 0;
+    const double scale = timeScale();   // export what you hear, including half/double-time
     const auto placed = bm::placeSections (library, song);
 
     // Long enough to contain one full groove cycle and one fill cycle (or the whole song).
@@ -438,7 +460,7 @@ juce::File BlackMetalDrumsProcessor::exportMidiFile() const
             if (l.num != lastNum || l.den != lastDen)
             {
                 auto sig = juce::MidiMessage::timeSignatureMetaEvent (l.num, l.den);
-                sig.setTimeStamp (placed[i].start * exportPpq);
+                sig.setTimeStamp (placed[i].start / scale * exportPpq);
                 seq.addEvent (sig);
                 lastNum = l.num;
                 lastDen = l.den;
@@ -452,7 +474,7 @@ juce::File BlackMetalDrumsProcessor::exportMidiFile() const
 
     auto onHit = [&] (const bm::Hit& hit)
     {
-        const double tick = juce::jmax (0.0, (hit.ppq + hit.offsetMs * bpm / 60'000.0) * exportPpq);
+        const double tick = juce::jmax (0.0, ((hit.ppq + hit.offsetPpq) / scale + hit.offsetMs * bpm / 60'000.0) * exportPpq);
         seq.addEvent (juce::MidiMessage::noteOn (drumChannel, hit.note, (juce::uint8) hit.velocity), tick);
         seq.addEvent (juce::MidiMessage::noteOff (drumChannel, hit.note), tick + exportPpq / 16.0);
     };
@@ -463,7 +485,7 @@ juce::File BlackMetalDrumsProcessor::exportMidiFile() const
     seq.updateMatchedPairs();
 
     auto endOfTrack = juce::MidiMessage::endOfTrack();
-    endOfTrack.setTimeStamp (length * exportPpq);
+    endOfTrack.setTimeStamp (length / scale * exportPpq);
     seq.addEvent (endOfTrack);
 
     juce::MidiFile file;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(BlackMetalDrums VERSION 0.4.1)
+project(BlackMetalDrums VERSION 0.5.0)
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures")

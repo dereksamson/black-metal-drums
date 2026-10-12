@@ -151,7 +151,9 @@ private:
     // Row 2: kit map + note triggers
     juce::TextButton kitMapButton { "Kit map" };
     juce::Label kitMapLabel, triggerCaption, triggerInfo;
-    juce::ComboBox triggerBox;
+    juce::ComboBox triggerBox, timeFeelBox;
+    juce::Slider swingSlider;
+    juce::Label timeFeelCaption, swingCaption;
 
     // Grid toolbar
     juce::TextButton grooveTab { "Edit groove" }, fillTab { "Edit fill" }, songTab { "Song" };
@@ -171,10 +173,10 @@ private:
     std::unique_ptr<HelpOverlay> helpOverlay;
 
     std::unique_ptr<ComboAttachment> fillEveryAttachment, triggerAttachment,
-                                     cymbalAttachment;
+                                     cymbalAttachment, timeFeelAttachment;
     std::unique_ptr<ButtonAttachment> randomFillAttachment, crashAfterAttachment;
     std::unique_ptr<SliderAttachment> humanizeAttachment, accentAttachment, velocityAttachment, timingAttachment,
-                                      kickAttachment, chanceAttachment;
+                                      kickAttachment, chanceAttachment, swingAttachment;
     juce::Random fillRandom;
     std::unique_ptr<juce::FileChooser> fileChooser;
 

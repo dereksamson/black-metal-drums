@@ -214,6 +214,42 @@ int main()
         dir.deleteRecursively();
     }
 
+    // Half-time / double-time: traditional blast kicks every 8th at normal speed.
+    {
+        Rig r;
+        r.setParam ("fillEvery", 0);
+        r.setParam ("timeFeel", 1);   // half-time: kicks every quarter
+        auto hits = r.play (0.0, 4.0);
+        check (hasNear (hits, 1.0, 36) && ! hasNear (hits, 0.5, 36), "half-time");
+
+        Rig d;
+        d.setParam ("fillEvery", 0);
+        d.setParam ("timeFeel", 2);   // double-time: kicks every 16th
+        hits = d.play (0.0, 4.0);
+        check (hasNear (hits, 0.25, 36) && hasNear (hits, 0.5, 36), "double-time");
+
+        // Half-time + note trigger: the groove restarts on the host bar line.
+        Rig t;
+        t.setParam ("fillEvery", 0);
+        t.setParam ("timeFeel", 1);
+        t.setParam ("trigger", 1);
+        hits = t.play (0.0, 8.0, { { 3.9, 3, true } });   // hammer blast from bar 2
+        check (hasNear (hits, 4.0, 38) && hasNear (hits, 5.0, 38) && ! hasNear (hits, 4.5, 38), "half-time trigger");
+    }
+
+    // Swing across block boundaries: every kick plays exactly once.
+    {
+        Rig r;
+        r.setParam ("fillEvery", 0);
+        r.setParam ("groove", 7);     // double kick 16ths: 4 kicks per beat
+        r.setParam ("swing", 100.0f);
+        r.setParam ("timing", 5.0f);
+        const auto hits = r.play (0.0, 16.0);
+        int kicks = 0;
+        for (auto& h : hits) kicks += h.second == 36 && h.first > 0.9 && h.first < 15.9;
+        check (kicks == 60 && hasNear (hits, 2.0 + 1.0 / 3.0, 36), "swing: no lost or doubled hits");
+    }
+
     // Timing humanize across block boundaries: every kick still plays exactly once.
     {
         Rig r;
