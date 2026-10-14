@@ -34,6 +34,15 @@ target_sources(BlackMetalDrums PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 
+# Embedded fonts (SIL Open Font License, see Resources/Fonts/OFL-*.txt).
+juce_add_binary_data(BlackMetalDrumsFonts
+    HEADER_NAME BinaryFonts.h
+    NAMESPACE BinaryFonts
+    SOURCES
+        Resources/Fonts/UnifrakturMaguntia-Book.ttf
+        Resources/Fonts/BarlowCondensed-Medium.ttf
+        Resources/Fonts/BarlowCondensed-SemiBold.ttf)
+
 target_compile_features(BlackMetalDrums PRIVATE cxx_std_17)
 
 target_compile_definitions(BlackMetalDrums PUBLIC
@@ -42,6 +51,7 @@ target_compile_definitions(BlackMetalDrums PUBLIC
 
 target_link_libraries(BlackMetalDrums
     PRIVATE
+        BlackMetalDrumsFonts
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags

@@ -5,21 +5,51 @@
 #include "PluginProcessor.h"
 #include "SongEditor.h"
 
+// "Bone & blood": monochrome bone on black; blood is kept for what is live or emphasised
+// (playhead, accents, toggled-on state, warnings), never for decoration.
 namespace bm::colours
 {
-    const juce::Colour background { 0xff0b0b0d };
-    const juce::Colour panel      { 0xff151518 };
-    const juce::Colour cellEmpty  { 0xff1d1d22 };
-    const juce::Colour outline    { 0xff34343b };
-    const juce::Colour text       { 0xffd6d6d6 };
-    const juce::Colour dimText    { 0xff8a8a92 };
+    const juce::Colour background { 0xff070707 };
+    const juce::Colour panel      { 0xff0e0e0f };
+    const juce::Colour cellEmpty  { 0xff19181a };
+    const juce::Colour outline    { 0xff2c2a29 };
+    const juce::Colour text       { 0xffe8e2d6 };   // bone
+    const juce::Colour dimText    { 0xff8c877e };
     const juce::Colour blood      { 0xffb3121b };
+}
+
+// Embedded typefaces: a blackletter for titles and headings, a condensed sans for everything else.
+namespace bm::fonts
+{
+    juce::FontOptions blackletter (float height);
+    juce::FontOptions ui (float height, bool bold = false);
 }
 
 class BlackMetalLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     BlackMetalLookAndFeel();
+
+    juce::Font getLabelFont (juce::Label&) override;
+
+    void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool highlighted, bool down) override;
+    juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
+    void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
+    void drawComboBox (juce::Graphics&, int width, int height, bool down, int buttonX, int buttonY,
+                       int buttonW, int buttonH, juce::ComboBox&) override;
+    juce::Font getComboBoxFont (juce::ComboBox&) override;
+    void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
+    void drawPopupMenuBackground (juce::Graphics&, int width, int height) override;
+    juce::Font getPopupMenuFont() override;
+    void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height, float sliderPos,
+                           float startAngle, float endAngle, juce::Slider&) override;
+    void drawLinearSlider (juce::Graphics&, int x, int y, int width, int height, float sliderPos,
+                           float minPos, float maxPos, juce::Slider::SliderStyle, juce::Slider&) override;
+    void drawScrollbar (juce::Graphics&, juce::ScrollBar&, int x, int y, int width, int height, bool vertical,
+                        int thumbStart, int thumbSize, bool mouseOver, bool mouseDown) override;
+
+    // TextButtons carrying this property are drawn as headings (blackletter), e.g. the editor tabs.
+    static constexpr const char* headingProperty = "bmHeading";
 };
 
 // Lane-by-step editor for one pattern; lives in a Viewport, lane names stay pinned left.
