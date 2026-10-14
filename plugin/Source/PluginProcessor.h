@@ -41,7 +41,8 @@ public:
     // Trigger keys sit outside the General MIDI drum range (35-81), so drum notes still pass through:
     // grooves from C-2 (note 0) up to A#0 (the first 35 grooves), fills from C6 (note 96) up.
     // In the channel-16 modes only channel 16 triggers, and every groove has a key (notes 0-95).
-    static constexpr int grooveKeyBase = 0, maxGrooveKeys = 35, maxGrooves = 96, fillKeyBase = 96;
+    static constexpr int grooveKeyBase = bm::grooveKeyBase, maxGrooveKeys = bm::defaultGrooveKeys,
+                         maxGrooves = bm::maxGrooves, fillKeyBase = bm::fillKeyBase;
 
     // Settings from the parameters alone (what the controls say).
     bm::Settings currentSettings() const;

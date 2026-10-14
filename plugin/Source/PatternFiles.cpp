@@ -39,6 +39,26 @@ bool writePatternMidi (const Settings& s, const Pattern& p, bool isFill, double 
     return stream.openedOk() && midi.writeTo (stream, 1);
 }
 
+juce::String fileNameFor (const juce::String& name)
+{
+    return juce::File::createLegalFileName (name.replace ("/", "-"));
+}
+
+juce::String keyTableMarkdown (const Library& lib)
+{
+    auto key = [] (int note) { return juce::MidiMessage::getMidiNoteName (note, true, true, 3) + " (" + juce::String (note) + ")"; };
+    juce::String t;
+    t << "| Key | Groove | Suggested tempo | Trigger modes |\n|---|---|---|---|\n";
+    for (size_t i = 0; i < lib.grooves.size(); ++i)
+        t << "| " << key (grooveKeyBase + (int) i) << " | " << lib.grooves[i]->name << " | " << suggestedTempo (*lib.grooves[i], false)
+          << " | " << ((int) i < defaultGrooveKeys ? "any channel" : "ch 16 only") << " |\n";
+    t << "\n| Key | Fill | Suggested tempo | Trigger modes |\n|---|---|---|---|\n";
+    for (size_t i = 0; i < lib.fills.size(); ++i)
+        t << "| " << key (fillKeyBase + (int) i) << " | " << lib.fills[i]->name << " | " << suggestedTempo (*lib.fills[i], true)
+          << " | any channel |\n";
+    return t;
+}
+
 int suggestedTempo (const Pattern& p, bool isFill)
 {
     if (isFill)
@@ -73,7 +93,7 @@ int exportAllPatterns (const Library& lib, const Settings& s, double bpm, const 
             const auto& p = *list[i];
             const int tempo = bpm > 0.0 ? juce::roundToInt (bpm) : suggestedTempo (p, fills);
             const auto name = juce::String (i + 1).paddedLeft ('0', 2) + " " + p.name + " - " + juce::String (tempo) + "bpm";
-            if (writePatternMidi (s, p, fills, tempo, dir.getChildFile (juce::File::createLegalFileName (name) + ".mid")))
+            if (writePatternMidi (s, p, fills, tempo, dir.getChildFile (fileNameFor (name) + ".mid")))
                 ++written;
         }
     }

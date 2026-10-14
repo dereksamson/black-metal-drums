@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "PatternFiles.h"
 
 namespace
 {
@@ -512,7 +513,7 @@ juce::File BlackMetalDrumsProcessor::exportMidiFile() const
 
     const auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("BlackMetalDrums");
     dir.createDirectory();
-    auto out = dir.getChildFile (juce::File::createLegalFileName (name) + ".mid");
+    auto out = dir.getChildFile (bm::fileNameFor (name) + ".mid");
     out.deleteFile();
 
     juce::FileOutputStream stream (out);

@@ -14,6 +14,12 @@ bool writePatternMidi (const Settings&, const Pattern&, bool isFill, double bpm,
 // pattern's suggested tempo (also added to the file name). Returns the number of files written.
 int exportAllPatterns (const Library&, const Settings&, double bpm, const juce::File& folder);
 
+// A file name for a pattern or song name: "/" (as in 12/8) becomes "-", other unsafe characters go.
+juce::String fileNameFor (const juce::String& name);
+
+// Markdown tables of every groove and fill with its trigger key and suggested tempo (user guide).
+juce::String keyTableMarkdown (const Library&);
+
 // A tempo that suits the pattern, for files written without a host tempo.
 int suggestedTempo (const Pattern&, bool isFill);
 

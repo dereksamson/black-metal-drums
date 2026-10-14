@@ -213,6 +213,9 @@ int main()
                         notes += e->message.isNoteOn();
         }
         check (files.size() == 1 && files[0].getFileName().contains ("200bpm") && notes == 48, "export all: traditional blast file");
+        check (bm::fileNameFor ("12/8 - Atmospheric") == "12-8 - Atmospheric"
+               && dir.getChildFile ("Grooves").findChildFiles (juce::File::findFiles, false, "* 12-8 - Atmospheric *").size() == 1,
+               "file names keep meters readable");
         dir.deleteRecursively();
     }
 
