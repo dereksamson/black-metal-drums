@@ -102,8 +102,10 @@ public:
     {
         if (highlighted)
         {
-            g.setColour (colours::blood.withAlpha (0.25f));
-            g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
+            g.setColour (colours::blood.withAlpha (0.2f));
+            g.fillRect (getLocalBounds());
+            g.setColour (colours::blood);
+            g.fillRect (getLocalBounds().withWidth (2));
         }
     }
 
@@ -157,7 +159,7 @@ SongEditor::SongEditor (BlackMetalDrumsProcessor& p) : bmProcessor (p)
     for (size_t i = 0; i < headers.size(); ++i)
     {
         headers[i].setText (headerNames[i], juce::dontSendNotification);
-        headers[i].setFont (juce::FontOptions (11.0f).withStyle ("Bold"));
+        headers[i].setFont (fonts::ui (12.5f, true).withKerningFactor (0.12f));
         headers[i].setColour (juce::Label::textColourId, colours::dimText);
         addAndMakeVisible (headers[i]);
     }

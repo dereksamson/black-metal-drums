@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "FillGenerator.h"
 #include "PatternFiles.h"
+#include "BinaryFonts.h"
 
 using namespace bm;
 
@@ -17,6 +18,55 @@ namespace
     const char* fillLengthNames[] = { "1/8", "1/4", "3/8", "1/2", "3/4", "4/4" };
 
     juce::String noteName (int note)    { return juce::MidiMessage::getMidiNoteName (note, true, true, 3); }
+
+    juce::Typeface::Ptr loadTypeface (const char* data, int size)
+    {
+        return juce::Typeface::createSystemTypefaceFor (data, (size_t) size);
+    }
+
+    juce::Typeface::Ptr blackletterFace()
+    {
+        static auto face = loadTypeface (BinaryFonts::UnifrakturMaguntiaBook_ttf, BinaryFonts::UnifrakturMaguntiaBook_ttfSize);
+        return face;
+    }
+
+    juce::Typeface::Ptr uiFace (bool bold)
+    {
+        static auto regular = loadTypeface (BinaryFonts::BarlowCondensedMedium_ttf, BinaryFonts::BarlowCondensedMedium_ttfSize);
+        static auto semiBold = loadTypeface (BinaryFonts::BarlowCondensedSemiBold_ttf, BinaryFonts::BarlowCondensedSemiBold_ttfSize);
+        return bold ? semiBold : regular;
+    }
+
+    // Photocopy grain, tiled over the editor background.
+    const juce::Image& grainTile()
+    {
+        static const juce::Image tile = []
+        {
+            juce::Image img (juce::Image::ARGB, 192, 192, true);
+            juce::Random rng (666);
+            for (int y = 0; y < img.getHeight(); ++y)
+                for (int x = 0; x < img.getWidth(); ++x)
+                {
+                    const float n = rng.nextFloat();
+                    if (n > 0.55f)
+                        img.setPixelAt (x, y, juce::Colours::white.withAlpha ((n - 0.55f) * 0.09f));
+                    else if (n < 0.08f)
+                        img.setPixelAt (x, y, juce::Colours::black.withAlpha (0.5f));
+                }
+            return img;
+        }();
+        return tile;
+    }
+}
+
+juce::FontOptions bm::fonts::blackletter (float height)
+{
+    return juce::FontOptions (blackletterFace()).withHeight (height);
+}
+
+juce::FontOptions bm::fonts::ui (float height, bool bold)
+{
+    return juce::FontOptions (uiFace (bold)).withHeight (height);
 }
 
 //==============================================================================
@@ -26,25 +76,180 @@ BlackMetalLookAndFeel::BlackMetalLookAndFeel()
     setColour (juce::ComboBox::backgroundColourId, colours::panel);
     setColour (juce::ComboBox::outlineColourId, colours::outline);
     setColour (juce::ComboBox::textColourId, colours::text);
-    setColour (juce::ComboBox::arrowColourId, colours::blood);
+    setColour (juce::ComboBox::arrowColourId, colours::dimText);
+    setColour (juce::ComboBox::focusedOutlineColourId, colours::text);
     setColour (juce::PopupMenu::backgroundColourId, colours::panel);
     setColour (juce::PopupMenu::textColourId, colours::text);
     setColour (juce::PopupMenu::headerTextColourId, colours::dimText);
-    setColour (juce::PopupMenu::highlightedBackgroundColourId, colours::blood.darker (0.4f));
+    setColour (juce::PopupMenu::highlightedBackgroundColourId, colours::blood.darker (0.35f));
+    setColour (juce::PopupMenu::highlightedTextColourId, colours::text.brighter (0.2f));
     setColour (juce::TextButton::buttonColourId, colours::panel);
-    setColour (juce::TextButton::buttonOnColourId, colours::blood.darker (0.3f));
+    setColour (juce::TextButton::buttonOnColourId, colours::blood.darker (0.25f));
     setColour (juce::TextButton::textColourOffId, colours::text);
-    setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+    setColour (juce::TextButton::textColourOnId, colours::text.brighter (0.2f));
     setColour (juce::ToggleButton::textColourId, colours::text);
     setColour (juce::ToggleButton::tickColourId, colours::blood);
     setColour (juce::ToggleButton::tickDisabledColourId, colours::dimText);
-    setColour (juce::Slider::rotarySliderFillColourId, colours::blood);
+    setColour (juce::Slider::rotarySliderFillColourId, colours::text);
     setColour (juce::Slider::rotarySliderOutlineColourId, colours::outline);
     setColour (juce::Slider::thumbColourId, colours::text);
-    setColour (juce::Slider::textBoxTextColourId, colours::text);
+    setColour (juce::Slider::trackColourId, colours::text);
+    setColour (juce::Slider::backgroundColourId, colours::outline);
+    setColour (juce::Slider::textBoxTextColourId, colours::dimText);
     setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     setColour (juce::Label::textColourId, colours::text);
     setColour (juce::ScrollBar::thumbColourId, colours::outline);
+    setColour (juce::TextEditor::highlightColourId, colours::blood.withAlpha (0.5f));
+    setColour (juce::TooltipWindow::backgroundColourId, colours::background);
+    setColour (juce::TooltipWindow::textColourId, colours::text);
+    setColour (juce::TooltipWindow::outlineColourId, colours::outline);
+}
+
+juce::Font BlackMetalLookAndFeel::getLabelFont (juce::Label& label)
+{
+    // Labels left on the default sans face (incl. slider value boxes) get the condensed UI face.
+    const auto font = label.getFont();
+    if (font.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+        return juce::Font (fonts::ui (font.getHeight(), font.isBold()));
+    return font;
+}
+
+void BlackMetalLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button, const juce::Colour& base,
+                                                  bool highlighted, bool down)
+{
+    const auto r = button.getLocalBounds().toFloat();
+    const bool on = button.getToggleState();
+    auto fill = base;
+    if (down)
+        fill = on ? fill.darker (0.2f) : colours::outline;
+    else if (highlighted)
+        fill = on ? fill.brighter (0.1f) : fill.brighter (0.08f);
+    if (! button.isEnabled())
+        fill = fill.withMultipliedAlpha (0.5f);
+
+    g.setColour (fill);
+    g.fillRect (r);
+    g.setColour (on ? colours::blood : highlighted ? colours::dimText : colours::outline);
+    g.drawRect (r, 1.0f);
+}
+
+juce::Font BlackMetalLookAndFeel::getTextButtonFont (juce::TextButton& button, int buttonHeight)
+{
+    if (button.getProperties().contains (headingProperty))
+        return juce::Font (fonts::blackletter (juce::jmin (21.0f, (float) buttonHeight * 0.72f)));
+    return juce::Font (fonts::ui (juce::jmin (15.0f, (float) buttonHeight * 0.55f), true));
+}
+
+void BlackMetalLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button, bool highlighted, bool)
+{
+    const float size = 12.0f;
+    const auto box = juce::Rectangle<float> (4.0f, ((float) button.getHeight() - size) * 0.5f, size, size);
+
+    g.setColour (highlighted ? colours::dimText : colours::outline.brighter (0.3f));
+    g.drawRect (box, 1.0f);
+    if (button.getToggleState())
+    {
+        g.setColour (button.isEnabled() ? colours::blood : colours::dimText);
+        g.fillRect (box.reduced (3.0f));
+    }
+
+    g.setColour (button.findColour (juce::ToggleButton::textColourId).withMultipliedAlpha (button.isEnabled() ? 1.0f : 0.5f));
+    g.setFont (fonts::ui (15.0f));
+    g.drawFittedText (button.getButtonText(), button.getLocalBounds().withTrimmedLeft ((int) size + 12).withTrimmedRight (2),
+                      juce::Justification::centredLeft, 1);
+}
+
+void BlackMetalLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool, int, int, int, int,
+                                          juce::ComboBox& box)
+{
+    const auto r = juce::Rectangle<int> (width, height).toFloat();
+    g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
+    g.fillRect (r);
+    g.setColour (box.hasKeyboardFocus (true) ? colours::dimText
+                 : box.isMouseOver (true)    ? colours::dimText.withAlpha (0.7f)
+                                             : box.findColour (juce::ComboBox::outlineColourId));
+    g.drawRect (r, 1.0f);
+
+    // A small downward blade instead of the rounded chevron.
+    const float cx = (float) width - 14.0f, cy = (float) height * 0.5f;
+    juce::Path blade;
+    blade.addTriangle (cx - 4.0f, cy - 2.0f, cx + 4.0f, cy - 2.0f, cx, cy + 3.5f);
+    g.setColour (box.findColour (juce::ComboBox::arrowColourId).withAlpha (box.isEnabled() ? 1.0f : 0.4f));
+    g.fillPath (blade);
+}
+
+juce::Font BlackMetalLookAndFeel::getComboBoxFont (juce::ComboBox& box)
+{
+    return juce::Font (fonts::ui (juce::jmin (16.0f, (float) box.getHeight() * 0.6f)));
+}
+
+void BlackMetalLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+{
+    label.setBounds (4, 1, box.getWidth() - 28, box.getHeight() - 2);
+    label.setFont (getComboBoxFont (box));
+}
+
+void BlackMetalLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width, int height)
+{
+    g.fillAll (findColour (juce::PopupMenu::backgroundColourId));
+    g.setColour (colours::outline);
+    g.drawRect (0, 0, width, height, 1);
+}
+
+juce::Font BlackMetalLookAndFeel::getPopupMenuFont()
+{
+    return juce::Font (fonts::ui (16.0f));
+}
+
+void BlackMetalLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+                                              float startAngle, float endAngle, juce::Slider& slider)
+{
+    const auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat().reduced (6.0f);
+    const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const auto centre = bounds.getCentre();
+    const float angle = startAngle + sliderPos * (endAngle - startAngle);
+    const float alpha = slider.isEnabled() ? 1.0f : 0.4f;
+
+    juce::Path track, value;
+    track.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, startAngle, endAngle, true);
+    value.addCentredArc (centre.x, centre.y, radius, radius, 0.0f, startAngle, angle, true);
+    g.setColour (colours::outline.withMultipliedAlpha (alpha));
+    g.strokePath (track, juce::PathStrokeType (2.0f, juce::PathStrokeType::mitered, juce::PathStrokeType::butt));
+    g.setColour (slider.findColour (juce::Slider::rotarySliderFillColourId).withMultipliedAlpha (alpha));
+    g.strokePath (value, juce::PathStrokeType (2.0f, juce::PathStrokeType::mitered, juce::PathStrokeType::butt));
+
+    // Needle from the hub out past the arc, tipped in blood.
+    const auto dir = juce::Point<float> (std::sin (angle), -std::cos (angle));
+    g.setColour (colours::text.withMultipliedAlpha (alpha));
+    g.drawLine ({ centre + dir * (radius * 0.25f), centre + dir * (radius * 0.85f) }, 1.5f);
+    g.setColour (colours::blood.withMultipliedAlpha (alpha));
+    g.drawLine ({ centre + dir * (radius * 0.85f), centre + dir * (radius + 3.0f) }, 2.0f);
+}
+
+void BlackMetalLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+                                              float, float, juce::Slider::SliderStyle style, juce::Slider& slider)
+{
+    if (style != juce::Slider::LinearHorizontal)
+    {
+        LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, 0.0f, 0.0f, style, slider);
+        return;
+    }
+    const float cy = (float) y + (float) height * 0.5f;
+    g.setColour (colours::outline);
+    g.fillRect ((float) x, cy - 1.0f, (float) width, 2.0f);
+    g.setColour (slider.findColour (juce::Slider::trackColourId));
+    g.fillRect ((float) x, cy - 1.0f, sliderPos - (float) x, 2.0f);
+    g.setColour (slider.isMouseOverOrDragging() ? colours::blood : colours::text);
+    g.fillRect (juce::Rectangle<float> (3.0f, 12.0f).withCentre ({ sliderPos, cy }));
+}
+
+void BlackMetalLookAndFeel::drawScrollbar (juce::Graphics& g, juce::ScrollBar& bar, int x, int y, int width, int height,
+                                           bool vertical, int thumbStart, int thumbSize, bool mouseOver, bool)
+{
+    const auto thumb = vertical ? juce::Rectangle<int> (x, thumbStart, width, thumbSize)
+                                : juce::Rectangle<int> (thumbStart, y, thumbSize, height);
+    g.setColour (bar.findColour (juce::ScrollBar::thumbColourId).brighter (mouseOver ? 0.4f : 0.0f));
+    g.fillRect (thumb.reduced (vertical ? 3 : 0, vertical ? 0 : 3));
 }
 
 //==============================================================================
@@ -123,17 +328,18 @@ void StepGrid::paint (juce::Graphics& g)
     };
 
     // Shade alternate beats so the grid reads in beats (dotted quarters in 6/8, 9/8, 12/8).
-    g.setColour (juce::Colours::white.withAlpha (0.03f));
+    g.setColour (colours::text.withAlpha (0.025f));
     for (int step = 0; step < numSteps; ++step)
         if (beatIndex (step) % 2 == 1)
             g.fillRect (stepX (step), 0.0f, colW, h);
 
     if (juce::isPositiveAndBelow (playStep, numSteps))
     {
-        g.setColour (juce::Colours::white.withAlpha (0.10f));
+        g.setColour (colours::blood.withAlpha (0.16f));
         g.fillRect (stepX (playStep), 0.0f, colW, h);
     }
 
+    // Hits are bone, brighter with velocity; accents bleed.
     for (int lane = 0; lane < NumLanes; ++lane)
     {
         const float y = rowH * (float) lane;
@@ -143,30 +349,32 @@ void StepGrid::paint (juce::Graphics& g)
             const int v = pattern->get (lane, step);
 
             g.setColour (colours::cellEmpty);
-            g.fillRoundedRectangle (cell, 2.0f);
+            g.fillRect (cell);
 
             if (v > 0)
             {
                 const float level = (float) v / 127.0f;
+                const bool accent = v >= 115;
                 const int chance = pattern->getChance (lane, step);
                 const float alpha = chance < 100 ? 0.35f + 0.55f * (float) chance / 100.0f : 1.0f;
-                g.setColour (colours::blood.withMultipliedBrightness (0.45f + 0.75f * level).withAlpha (alpha));
-                g.fillRoundedRectangle (cell, 2.0f);
-                g.setColour (juce::Colours::white.withAlpha (0.35f));   // velocity bar
+                const auto hit = accent ? colours::blood : colours::cellEmpty.interpolatedWith (colours::text, 0.3f + 0.7f * level);
+                g.setColour (hit.withAlpha (alpha));
+                g.fillRect (cell);
+                g.setColour (colours::background.withAlpha (0.45f));   // velocity bar
                 const float barH = (cell.getHeight() - 4.0f) * level;
                 g.fillRect (cell.getX() + 2.0f, cell.getBottom() - 2.0f - barH, 2.0f, barH);
 
                 if (chance < 100)   // dashed outline + percentage marks a chance step
                 {
                     juce::Path outline, dashed;
-                    outline.addRoundedRectangle (cell.reduced (0.5f), 2.0f);
+                    outline.addRectangle (cell.reduced (0.5f));
                     const float dashes[] = { 2.0f, 2.0f };
                     juce::PathStrokeType (1.0f).createDashedStroke (dashed, outline, dashes, 2);
-                    g.setColour (juce::Colours::white.withAlpha (0.7f));
+                    g.setColour (accent ? colours::text : colours::background);
                     g.fillPath (dashed);
                     if (colW >= 22.0f)
                     {
-                        g.setFont (juce::FontOptions (9.0f));
+                        g.setFont (fonts::ui (11.0f, true));
                         g.drawText (juce::String (chance), cell, juce::Justification::centred);
                     }
                 }
@@ -180,24 +388,33 @@ void StepGrid::paint (juce::Graphics& g)
         const bool barLine = step % perBar == 0;
         if (! barLine && ! isBeatStart (step))
             continue;
-        g.setColour (barLine ? colours::blood.withAlpha (0.8f) : colours::outline);
+        g.setColour (barLine ? colours::dimText : colours::outline);
         g.fillRect (stepX (step) - (barLine ? 1.0f : 0.5f), 0.0f, barLine ? 2.0f : 1.0f, h);
+    }
+
+    // Playhead: a blood edge on top of the column.
+    if (juce::isPositiveAndBelow (playStep, numSteps))
+    {
+        g.setColour (colours::blood);
+        g.fillRect (stepX (playStep), 0.0f, colW, 3.0f);
     }
 
     // Lane names, pinned to the left edge of the visible area.
     const float lx = scrollX();
     g.setColour (colours::panel);
     g.fillRect (lx, 0.0f, (float) labelWidth, h);
+    g.setColour (colours::outline);
+    g.fillRect (lx + (float) labelWidth - 1.0f, 0.0f, 1.0f, h);
     for (int lane = 0; lane < NumLanes; ++lane)
     {
         const float y = rowH * (float) lane;
         const int note = bmProcessor.noteMap[(size_t) lane].load();
         g.setColour (colours::text);
-        g.setFont (juce::FontOptions (13.0f));
-        g.drawText (laneNames[lane], juce::Rectangle<float> (lx + 8.0f, y, (float) labelWidth - 60.0f, rowH),
+        g.setFont (fonts::ui (15.0f, true).withKerningFactor (0.06f));
+        g.drawText (juce::String (laneNames[lane]).toUpperCase(), juce::Rectangle<float> (lx + 8.0f, y, (float) labelWidth - 60.0f, rowH),
                     juce::Justification::centredLeft);
         g.setColour (colours::dimText);
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (fonts::ui (13.0f));
         g.drawText (juce::String (note) + " " + noteName (note),
                     juce::Rectangle<float> (lx + (float) labelWidth - 62.0f, y, 56.0f, rowH),
                     juce::Justification::centredRight);
@@ -390,22 +607,23 @@ void StepGrid::edited()
 void MidiDragTile::paint (juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat().reduced (1.0f);
-    g.setColour (isMouseOver() ? colours::blood.darker (0.5f) : colours::panel);
-    g.fillRoundedRectangle (r, 6.0f);
+    const bool over = isMouseOver();
+    g.setColour (over ? colours::blood.withAlpha (0.18f) : colours::panel);
+    g.fillRect (r);
 
     juce::Path border;
-    border.addRoundedRectangle (r, 6.0f);
+    border.addRectangle (r);
     juce::Path dashed;
-    const float dashes[] = { 5.0f, 4.0f };
-    juce::PathStrokeType (1.5f).createDashedStroke (dashed, border, dashes, 2);
-    g.setColour (colours::blood);
+    const float dashes[] = { 6.0f, 4.0f };
+    juce::PathStrokeType (1.0f).createDashedStroke (dashed, border, dashes, 2);
+    g.setColour (over ? colours::blood : colours::dimText);
     g.fillPath (dashed);
 
     g.setColour (colours::text);
-    g.setFont (juce::FontOptions (14.0f).withStyle ("Bold"));
+    g.setFont (fonts::ui (17.0f, true).withKerningFactor (0.1f));
     g.drawText ("DRAG MIDI INTO LOGIC", r.withTrimmedBottom (r.getHeight() * 0.45f), juce::Justification::centredBottom);
     g.setColour (colours::dimText);
-    g.setFont (juce::FontOptions (11.0f));
+    g.setFont (fonts::ui (13.0f));
     g.drawText ("selected groove + fills", r.withTrimmedTop (r.getHeight() * 0.58f), juce::Justification::centredTop);
 }
 
@@ -439,14 +657,16 @@ HelpOverlay::HelpOverlay (const juce::String& text)
 
 void HelpOverlay::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::black.withAlpha (0.6f));
+    g.fillAll (juce::Colours::black.withAlpha (0.7f));
     g.setColour (colours::background);
-    g.fillRoundedRectangle (panel.toFloat(), 8.0f);
+    g.fillRect (panel);
+    g.setColour (colours::outline);
+    g.drawRect (panel, 1);
     g.setColour (colours::blood);
-    g.drawRoundedRectangle (panel.toFloat(), 8.0f, 1.5f);
+    g.fillRect (panel.withHeight (2));
     g.setColour (colours::text);
-    g.setFont (juce::FontOptions (16.0f).withStyle ("Bold"));
-    g.drawText ("QUICK REFERENCE", panel.withHeight (40).reduced (16, 0), juce::Justification::centredLeft);
+    g.setFont (fonts::blackletter (26.0f));
+    g.drawText ("Quick Reference", panel.withHeight (44).reduced (16, 0), juce::Justification::centredLeft);
 }
 
 void HelpOverlay::resized()
@@ -510,7 +730,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     setupCaption (triggerCaption, "NOTE TRIGGER");
     triggerCaption.setJustificationType (juce::Justification::centredRight);
     triggerInfo.setColour (juce::Label::textColourId, colours::dimText);
-    triggerInfo.setFont (juce::FontOptions (11.5f));
+    triggerInfo.setFont (fonts::ui (14.0f));
     addAndMakeVisible (triggerInfo);
 
     timeFeelBox.addItemList ({ "Normal", "Half-time", "Double-time" }, 1);
@@ -520,6 +740,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     timeFeelCaption.setJustificationType (juce::Justification::centredRight);
     swingSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     swingSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 48, 20);
+    swingSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     swingSlider.setTooltip ("Delays every second 8th/16th/32nd towards the triplet position (straight grids only)");
     addAndMakeVisible (swingSlider);
     setupCaption (swingCaption, "SWING");
@@ -544,6 +765,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
     songTab.setTooltip ("Arrange sections into a song");
     for (auto* tab : { &grooveTab, &fillTab, &songTab })
     {
+        tab->getProperties().set (BlackMetalLookAndFeel::headingProperty, true);
         tab->setClickingTogglesState (true);
         tab->setRadioGroupId (1);
         tab->onClick = [this] { syncGridPattern(); updateTabs(); };
@@ -569,7 +791,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
         addAndMakeVisible (*box);
     }
 
-    statusLabel.setFont (juce::FontOptions (12.0f));
+    statusLabel.setFont (fonts::ui (15.0f));
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
 
@@ -628,7 +850,7 @@ BlackMetalDrumsEditor::BlackMetalDrumsEditor (BlackMetalDrumsProcessor& p)
                        "Right-click: copy/paste  -  Lane name: MIDI note",
                        juce::dontSendNotification);
     hintLabel.setColour (juce::Label::textColourId, colours::dimText);
-    hintLabel.setFont (juce::FontOptions (11.5f));
+    hintLabel.setFont (fonts::ui (14.0f));
     addAndMakeVisible (hintLabel);
     addAndMakeVisible (dragTile);
 
@@ -656,7 +878,7 @@ BlackMetalDrumsEditor::~BlackMetalDrumsEditor()
 void BlackMetalDrumsEditor::setupCaption (juce::Label& label, const juce::String& text)
 {
     label.setText (text, juce::dontSendNotification);
-    label.setFont (juce::FontOptions (11.0f).withStyle ("Bold"));
+    label.setFont (fonts::ui (12.5f, true).withKerningFactor (0.12f));
     label.setColour (juce::Label::textColourId, colours::dimText);
     addAndMakeVisible (label);
 }
@@ -665,6 +887,7 @@ void BlackMetalDrumsEditor::setupKnob (juce::Slider& knob, juce::Label& caption,
 {
     knob.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     knob.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 16);
+    knob.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     addAndMakeVisible (knob);
     setupCaption (caption, text);
     caption.setJustificationType (juce::Justification::centred);
@@ -1233,17 +1456,21 @@ void BlackMetalDrumsEditor::saveMidiAs()
 void BlackMetalDrumsEditor::paint (juce::Graphics& g)
 {
     g.fillAll (colours::background);
+    g.setTiledImageFill (grainTile(), 0, 0, 1.0f);
+    g.fillAll();
 
-    auto header = getLocalBounds().removeFromTop (48).reduced (20, 0);
+    auto header = getLocalBounds().removeFromTop (50).reduced (20, 0);
     g.setColour (colours::text);
-    g.setFont (juce::FontOptions (22.0f).withStyle ("Bold"));
-    g.drawText ("BLACK METAL DRUMS", header, juce::Justification::centredLeft);
+    g.setFont (fonts::blackletter (36.0f));
+    g.drawText ("Black Metal Drums", header, juce::Justification::centredLeft);
     g.setColour (colours::blood);
-    g.fillRect (20, 46, 60, 2);
+    g.fillRect (20, 50, 60, 2);
+    g.setColour (colours::outline);
+    g.fillRect (80, 51, getWidth() - 100, 1);
 
     g.setColour (colours::dimText);
-    g.setFont (juce::FontOptions (11.0f));
-    g.drawText ("MIDI FX  -  channel 10", header.withTrimmedRight (44), juce::Justification::centredRight);
+    g.setFont (fonts::ui (13.0f, true).withKerningFactor (0.15f));
+    g.drawText ("MIDI FX  -  CHANNEL 10", header.withTrimmedRight (44), juce::Justification::centredRight);
 
     // Separator above the kit / trigger row.
     g.setColour (colours::outline);
