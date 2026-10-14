@@ -954,7 +954,7 @@ void BlackMetalDrumsEditor::savePresetAs()
     const bool fills = fillTab.getToggleState();
     presetFolder (fills).createDirectory();
     fileChooser = std::make_unique<juce::FileChooser> (
-        "Save pattern", presetFolder (fills).getChildFile (juce::File::createLegalFileName (shownPattern->name) + ".bmpat"), "*.bmpat");
+        "Save pattern", presetFolder (fills).getChildFile (fileNameFor (shownPattern->name) + ".bmpat"), "*.bmpat");
 
     juce::Component::SafePointer<BlackMetalDrumsEditor> safe (this);
     auto* pattern = shownPattern;

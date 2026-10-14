@@ -20,6 +20,10 @@ inline bool isCymbalLane (int lane) noexcept    { return lane <= HiHatOpen; }
 
 constexpr int maxSteps = 192;   // 4 bars of 12/8 at 1/32
 
+// Note-trigger key layout. Grooves from note 0; in the default modes only the first 35 have keys,
+// so they stay below the General MIDI drum range (35-81). Fills from note 96 (C6).
+constexpr int grooveKeyBase = 0, defaultGrooveKeys = 35, maxGrooves = 96, fillKeyBase = 96;
+
 extern const char* const laneNames[NumLanes];
 extern const char* const laneIds[NumLanes];
 extern const int defaultNotes[NumLanes];   // General MIDI

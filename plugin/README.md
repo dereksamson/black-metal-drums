@@ -13,6 +13,7 @@ JUCE 8.0.10 is a git submodule in `external/JUCE`; clone with `--recurse-submodu
 | `./build.sh` | Builds the plugin, runs the engine and processor tests, installs to `~/Library/Audio/Plug-Ins/Components`, ad-hoc signs, runs `auval` |
 | `./package.sh` | Universal build (arm64 + x86_64): a non-relocatable `.pkg` installer and a `.zip` of the component in `../dist`. The plugin installed by `build.sh` is left alone |
 | `./build/ExportPatterns_artefacts/Release/ExportPatterns ../midi` | Regenerates the repository's `midi/` folder from the factory patterns |
+| `./build/ExportPatterns_artefacts/Release/ExportPatterns --key-table` | Prints the user guide's trigger key tables. Paste them between the `key-table` markers |
 
 The version is set in `CMakeLists.txt` (`project(... VERSION ...)`) and shown in the plugin's
 **? > About** menu.
@@ -22,8 +23,9 @@ The version is set in `CMakeLists.txt` (`project(... VERSION ...)`) and shown in
 - **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs on every push to `main`
   and on every pull request, on a macOS runner:
   - `build.sh`: build, all tests, and `auval`
-  - a check that `midi/` matches the factory patterns. After changing a pattern, run
-    `ExportPatterns ../midi` and commit the result.
+  - checks that `midi/` and the user guide's key tables match the factory patterns. After
+    changing a pattern, run `ExportPatterns ../midi` and `ExportPatterns --key-table`, and commit
+    the results.
 - **Releasing** ([.github/workflows/release.yml](../.github/workflows/release.yml)):
   1. Bump `project(BlackMetalDrums VERSION x.y.z)` in `CMakeLists.txt`.
   2. Merge to `main`.

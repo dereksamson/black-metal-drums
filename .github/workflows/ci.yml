@@ -25,3 +25,9 @@ jobs:
           plugin/build/ExportPatterns_artefacts/Release/ExportPatterns midi
           git status --porcelain midi
           test -z "$(git status --porcelain midi)" || { echo "midi/ is out of date: run ExportPatterns midi and commit"; exit 1; }
+
+      - name: Check the user guide's key tables match the patterns
+        run: |
+          plugin/build/ExportPatterns_artefacts/Release/ExportPatterns --key-table > expected.md
+          sed -n '/<!-- key-table:start/,/<!-- key-table:end -->/p' docs/USER_GUIDE.md | sed '1d;$d' > actual.md
+          diff -u expected.md actual.md || { echo "Key tables are out of date: regenerate them with ExportPatterns --key-table"; exit 1; }
